@@ -1,52 +1,8 @@
 # Vimb — zentoo fork
 
-This branch (`zentoo`) is a downstream fork of [`fanglingsu/vimb`](https://github.com/fanglingsu/vimb) maintained alongside the [zentoo install guide](https://github.com/craig-miller/zentoo) — a Gentoo Linux install guide for Apple Silicon (M1) MacBooks on Asahi. It rebases onto upstream master periodically. Upstream's README follows this section unmodified.
+This branch (`zentoo`) is a downstream fork of [`fanglingsu/vimb`](https://github.com/fanglingsu/vimb). It rebases onto upstream master periodically.
 
-## What the fork adds
-
-Six commits on top of upstream. Each is single-purpose and rebase-friendly.
-
-1. **WebKit-native ad + tracker + cookie-banner blocking.** Adds `VIMB_CONTENT_FILTER_STORE_PATH` to `src/config.def.h` and content-filter loading + `WebKitUserContentManager` attachment in `src/main.c`. Filters are precompiled to WebKit bytecode by [`app-misc/vimb-blocklist`](https://github.com/craig-miller/vimb-blocklist) in the zentoo overlay and loaded synchronously at `vimb_setup()` before any WebView is created.
-2. **Window background `#212121e6`.** One-line `GUI_WINDOW_BACKGROUND_COLOR` flip so the pre-paint flash on every page-load is a translucent dark grey instead of white. Flows through `gdk_rgba_parse` + GTK4 CSS `background-color`.
-3. **Home page `https://kagi.com`.** One-line `SETTING_HOME_PAGE` flip. Privacy-respecting search, matches zentoo's content-filter + encrypted-DNS defaults. Users override at runtime via `set home-page=<url>` in `~/.config/vimb/config`.
-4. **`FEATURE_NO_TABS` on.** Uncomments the compile-time toggle so `:tabopen`, `gn`, `gN`, etc. spawn new vimb processes instead of in-window tabs. Composes with a scrolling tiling compositor (niri) that manages each URL as its own column.
-5. **`--no-maximize` in the shipped `.desktop`.** Vimb calls `gtk_window_maximize()` unconditionally at startup unless this flag is passed. On niri that state bypasses layout gaps and reads as an unmanageable fullscreen window; on other compositors that expect no CSD it can misalign the frame. Baked into `vimb.desktop` so every launcher path inherits it.
-6. **`SIGUSR2` → reload config across all clients.** New signal handler that re-runs `ex_run_file()` on `~/.config/vimb/config` for every open Client. Deferred via `g_idle_add` so cascading GTK/WebKit signals fire from a clean main-loop iteration. Lets external tools (a system-theme daemon, a dotfile installer) flip runtime settings without restart. `pkill -USR2 -x vimb` broadcasts to every live vimb window.
-
-**Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
-
-## Installing
-
-The [zentoo overlay](https://github.com/craig-miller/zentoo-overlay) carries `www-client/vimb` wired to this branch (git-r3 live). If you're following the install guide, `sudo emerge --ask www-client/vimb` pulls the fork, WebKit-GTK 6.0, the ad-blocking helper stack, and installs `/usr/bin/vimb-theme-flip` — a small shell helper for Noctalia's `theme_mode_changed` hook.
-
-If you want to consume this branch outside the zentoo overlay:
-
-```sh
-git clone -b zentoo https://github.com/craig-miller/vimb.git
-cd vimb
-make
-sudo make install
-```
-
-DEPEND is `net-libs/webkit-gtk:6` + `gui-libs/gtk:4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the overlay ebuild for the canonical set.
-
-## Rebasing on upstream
-
-```sh
-git fetch upstream
-git rebase upstream/master
-git push origin zentoo   # force-push, keeping the six-commit shape
-```
-
-Each commit is single-purpose so conflicts, if any, are localized.
-
----
-
-# Vimb - the Vim-like browser
-
-[![Build Status](https://github.com/fanglingsu/vimb/actions/workflows/ci.yml/badge.svg)](https://github.com/fanglingsu/vimb/actions/workflows/ci.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Latest Release](https://img.shields.io/github/release/fanglingsu/vimb.svg?style=flat)](https://github.com/fanglingsu/vimb/releases/latest)
+## Vimb - the Vim-like browser
 
 Vimb is a Vim-like web browser that is inspired by Pentadactyl and Vimprobable.
 The goal of Vimb is to build a completely keyboard-driven, efficient and
@@ -71,108 +27,44 @@ the project page of [Vimb][].
 - multiple yank/paste registers
 - Vim like autocmd - execute commands automatically after an event on specific URIs
 
-## Packages
+## What the fork adds
 
-- Arch Linux: [extra/vimb][], [aur/vimb-git][], [aur/vimb-gtk2][]
-- Debian: [trixie/vimb][], [sid/vimb][]
-- Fedora: [fedora/vimb][],
-- Gentoo: [tharvik overlay][], [jjakob overlay][]
-- openSUSE: [network/vimb][]
-- pkgsrc: [pkgsrc/www/vimb][], [pkgsrc/wip/vimb-git][]
-- Slackware: [slackbuild/vimb][]
+Six commits on top of upstream. Each is single-purpose and rebase-friendly.
 
-## dependencies
+1. **WebKit-native ad + tracker + cookie-banner blocking.** Adds `VIMB_CONTENT_FILTER_STORE_PATH` to `src/config.def.h` and content-filter loading + `WebKitUserContentManager` attachment in `src/main.c`. Filters are precompiled to WebKit bytecode by [`app-misc/vimb-blocklist`](https://github.com/craig-miller/vimb-blocklist) in the zentoo overlay and loaded synchronously at `vimb_setup()` before any WebView is created.
+2. **Window background `#212121e6`.** One-line `GUI_WINDOW_BACKGROUND_COLOR` flip so the pre-paint flash on every page-load is a translucent dark grey instead of white. Flows through `gdk_rgba_parse` + GTK4 CSS `background-color`.
+3. **Home page `https://kagi.com`.** One-line `SETTING_HOME_PAGE` flip. Privacy-respecting search, matches zentoo's content-filter + encrypted-DNS defaults. Users override at runtime via `set home-page=<url>` in `~/.config/vimb/config`.
+4. **`FEATURE_NO_TABS` on.** Uncomments the compile-time toggle so `:tabopen`, `gn`, `gN`, etc. spawn new vimb processes instead of in-window tabs. Composes with a scrolling tiling compositor (niri) that manages each URL as its own column.
+5. **`--no-maximize` in the shipped `.desktop`.** Vimb calls `gtk_window_maximize()` unconditionally at startup unless this flag is passed. On niri that state bypasses layout gaps and reads as an unmanageable fullscreen window; on other compositors that expect no CSD it can misalign the frame. Baked into `vimb.desktop` so every launcher path inherits it.
+6. **`SIGUSR2` → reload config across all clients.** New signal handler that re-runs `ex_run_file()` on `~/.config/vimb/config` for every open Client. Deferred via `g_idle_add` so cascading GTK/WebKit signals fire from a clean main-loop iteration. Lets external tools (a system-theme daemon, a dotfile installer) flip runtime settings without restart. `pkill -USR2 -x vimb` broadcasts to every live vimb window.
 
-- gtk4
-- webkitgtk-6.0
-- gst-libav, gst-plugins-good (optional, for media decoding among other things)
+**Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
 
-**Note:** Vimb has been migrated from GTK3/WebKit2GTK-4.1 to GTK4/WebKitGTK-6.0.
-This is a major version change that requires GTK4 and WebKitGTK 6.0 or later.
+## Installing
 
-### Native Tab Support
+### Gentoo Linux
+The [zentoo overlay](https://github.com/craig-miller/zentoo-overlay) carries `www-client/vimb` wired to this branch (git-r3 live). If you're following the install guide, `sudo emerge --ask www-client/vimb` pulls the fork, WebKit-GTK 6.0, the ad-blocking helper stack, and installs `/usr/bin/vimb-theme-flip` — a small shell helper for Noctalia's `theme_mode_changed` hook.
 
-Vimb now has **native tab support** using GTK4's `GtkNotebook`. All tabs share a 
-single window with a shared command input at the bottom.
+### Other distros
+If you want to consume this branch outside the zentoo overlay:
 
-**Tab Commands:**
-- `:tabopen [uri]` or `:tabo [uri]` - Open URI in new tab
-- `:tabclose` - Close current tab
-- `:tabnext` or `:tabn` - Switch to next tab  
-- `:tabprev` or `:tabp` - Switch to previous tab
-- `:tabfirst` - Go to first tab
-- `:tablast` - Go to last tab
+```sh
+git clone -b zentoo https://github.com/craig-miller/vimb.git
+cd vimb
+make
+sudo make install
+```
 
-**Keyboard Shortcuts (Normal Mode):**
-- `gt` - Go to next tab
-- `gT` - Go to previous tab
-- `g0` - Go to first tab
-- `g$` - Go to last tab
+DEPEND is `net-libs/webkit-gtk:6` + `gui-libs/gtk:4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the overlay ebuild for the canonical set.
 
-**Note:** GTK4 has removed XEmbed support (GtkPlug/GtkSocket). The `-e, --embed` 
-flag is no longer functional. Native tabs replace the need for external tools 
-like `tabbed`.
+## Rebasing on upstream
 
-## Install
+```sh
+git fetch upstream
+git rebase upstream/master
+git push origin zentoo   # force-push, keeping the six-commit shape
+```
 
-Edit `config.mk` to match your local setup. You might need to do this if
-you use another compiler, like tcc. Most people, however, will almost never
-need to do this on systems like Ubuntu or Debian.
+Each commit is single-purpose so conflicts, if any, are localized.
 
-Edit `src/config.h` to match your personal preferences, like changing the
-characters used in the loading bar, or the font.
 
-The default `Makefile` will not overwrite your customised `config.h` with the
-contents of `config.def.h`, even if it was updated in the latest git pull.
-Therefore, you should always compare your customised `config.h` with
-`config.def.h` and make sure you include any changes to the latter in your
-`config.h`.
-
-Run the following commands to compile and install Vimb (if necessary, the last one as
-root). If you want to change the `PREFIX`, note that it's required to give it on both stages, build and install.
-
-    make PREFIX=/usr
-    make PREFIX=/usr install
-
-To run vimb without installation for testing it out use the 'runsandbox' make
-target.
-
-    make runsandbox
-
-## Mailing list
-
-- feature requests, issues and patches can be discussed on the [mailing list][mail] ([list archive][mail-archive])
-
-## Similar projects
-
-- [luakit](https://luakit.github.io/)
-- [qutebrowser](https://www.qutebrowser.org/)
-- [surf](https://surf.suckless.org/)
-- [uzbl](https://www.uzbl.org/)
-- [wyeb](https://github.com/jun7/wyeb)
-
-## license
-
-Information about the license are found in the file LICENSE.
-
-## about
-
-- https://en.wikipedia.org/wiki/Vimb
-- http://thedarnedestthing.com/vimb
-- https://blog.jeaye.com/2015/08/23/vimb/
-
-[aur/vimb-git]:        https://aur.archlinux.org/packages/vimb-git
-[aur/vimb-gtk2]:       https://aur.archlinux.org/packages/vimb-gtk2/
-[trixie/vimb]:         https://packages.debian.org/trixie/vimb
-[sid/vimb]:            https://packages.debian.org/sid/vimb
-[extra/vimb]:          https://www.archlinux.org/packages/extra/x86_64/vimb/
-[fedora/vimb]:         https://src.fedoraproject.org/rpms/vimb
-[tharvik overlay]:     https://github.com/tharvik/overlay/tree/master/www-client/vimb
-[jjakob overlay]:      https://github.com/jjakob/gentoo-overlay/tree/master/www-client/vimb
-[mail-archive]:        https://sourceforge.net/p/vimb/vimb/vimb-users/ "vimb - mailing list archive"
-[mail]:                https://lists.sourceforge.net/lists/listinfo/vimb-users "vimb - mailing list"
-[network/vimb]:        https://build.opensuse.org/package/show/network/vimb
-[pkgsrc/wip/vimb-git]: http://pkgsrc.se/wip/vimb-git
-[pkgsrc/www/vimb]:     http://pkgsrc.se/www/vimb
-[slackbuild/vimb]:     https://slackbuilds.org/repository/14.2/network/vimb/
-[vimb]:                https://fanglingsu.github.io/vimb/ "Vimb - Vim like browser project page"
