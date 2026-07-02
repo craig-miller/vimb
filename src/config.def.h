@@ -109,3 +109,11 @@
     GET_BOOL(c, "stylesheet") ? 'M' : 'm', \
     GET_BOOL(c, "scripts") ? 'S' : 's', \
     GET_BOOL(c, "strict-ssl") ? 'T' : 't'
+
+/* Ad + tracker + cookie-banner blocking via WebKit's native content-filter
+ * API. At startup vimb reads three precompiled filters (easylist,
+ * easyprivacy, cookies) from this directory and attaches them to every
+ * WebView it creates. The store is populated by app-misc/vimb-blocklist
+ * in the zentoo overlay via a weekly cron. Set to the empty string to
+ * disable filtering. */
+#define VIMB_CONTENT_FILTER_STORE_PATH "/var/cache/vimb-blocklist/store"
