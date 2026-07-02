@@ -175,6 +175,30 @@ static gboolean signal_handler_cb(gpointer user_data)
     return G_SOURCE_REMOVE;
 }
 
+/* Deferred reload: does the actual work at a clean main-loop idle
+ * point so setting-change callbacks (which cascade into GTK settings
+ * notify signals and WebKit IPC) don't run mid-dispatch. */
+static gboolean reload_config_idle_cb(gpointer user_data)
+{
+    Client *c;
+    for (c = vb.clients; c; c = c->next) {
+        ex_run_file(c, vb.files[FILES_CONFIG]);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+/* SIGUSR1 handler: schedule a config reload against every live client
+ * so `:set` lines take effect without restart.  Wired for out-of-process
+ * theme sync (e.g. `pkill -USR1 vimb` from a hook after a system
+ * dark/light flip).  The work is deferred to g_idle_add so the signal
+ * source callback returns quickly and any cascading GTK/WebKit signals
+ * fire from a clean main-loop iteration. */
+static gboolean reload_config_cb(gpointer user_data)
+{
+    g_idle_add(reload_config_idle_cb, NULL);
+    return G_SOURCE_CONTINUE;
+}
+
 /**
  * Set the destination for a download according to suggested file name and
  * possible given path.
@@ -3262,6 +3286,7 @@ int main(int argc, char* argv[])
     /* Use g_unix_signal_add to handle signals in main loop context */
     g_unix_signal_add(SIGINT, signal_handler_cb, NULL);
     g_unix_signal_add(SIGTERM, signal_handler_cb, NULL);
+    g_unix_signal_add(SIGUSR1, reload_config_cb, NULL);
 
     if (ver) {
         printf("%s, version %s\n", PROJECT, VERSION);
