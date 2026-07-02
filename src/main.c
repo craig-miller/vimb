@@ -187,12 +187,15 @@ static gboolean reload_config_idle_cb(gpointer user_data)
     return G_SOURCE_REMOVE;
 }
 
-/* SIGUSR1 handler: schedule a config reload against every live client
+/* SIGUSR2 handler: schedule a config reload against every live client
  * so `:set` lines take effect without restart.  Wired for out-of-process
- * theme sync (e.g. `pkill -USR1 vimb` from a hook after a system
- * dark/light flip).  The work is deferred to g_idle_add so the signal
- * source callback returns quickly and any cascading GTK/WebKit signals
- * fire from a clean main-loop iteration. */
+ * theme sync (e.g. `pkill -USR2 vimb` from a hook after a system
+ * dark/light flip).  We use USR2 rather than USR1 because WebKit's JSC
+ * uses SIGUSR1 for stop-the-world garbage-collection signaling — if we
+ * override that handler the next GC pass crashes the process ("Overriding
+ * existing handler for signal 10.").  The work is deferred to g_idle_add
+ * so the signal source callback returns quickly and any cascading
+ * GTK/WebKit signals fire from a clean main-loop iteration. */
 static gboolean reload_config_cb(gpointer user_data)
 {
     g_idle_add(reload_config_idle_cb, NULL);
@@ -3286,7 +3289,7 @@ int main(int argc, char* argv[])
     /* Use g_unix_signal_add to handle signals in main loop context */
     g_unix_signal_add(SIGINT, signal_handler_cb, NULL);
     g_unix_signal_add(SIGTERM, signal_handler_cb, NULL);
-    g_unix_signal_add(SIGUSR1, reload_config_cb, NULL);
+    g_unix_signal_add(SIGUSR2, reload_config_cb, NULL);
 
     if (ver) {
         printf("%s, version %s\n", PROJECT, VERSION);
