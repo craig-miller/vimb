@@ -51,7 +51,7 @@
 /* css applied to the gui elements regardless of user's settings */
 #define GUI_STYLE_CSS_BASE          "#input text{background-color:inherit;color:inherit;caret-color:@color;font:inherit;}"
 /* define this to set the initial background color for the GTK window */
-#define GUI_WINDOW_BACKGROUND_COLOR "#FFFFFF"
+#define GUI_WINDOW_BACKGROUND_COLOR "#212121e6"
 
 #define INCSEARCH_MATCHES_LIMIT 1000
 
