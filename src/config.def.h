@@ -63,7 +63,7 @@
 #define SETTING_HOME_PAGE                     "https://kagi.com"
 #define SETTING_DOWNLOAD_PATH                 "~/Downloads"
 /* cookie-accept allowed values always, origin, never */
-#define SETTING_COOKIE_ACCEPT                 "always"
+#define SETTING_COOKIE_ACCEPT                 "origin"
 #define SETTING_HINT_KEYS                     "0123456789"
 #define SETTING_HISTIGNORE                    "^(about:)|(file:)"
 #define SETTING_DOWNLOAD_COMMAND              "/bin/sh -c \"curl -sLJOC - -e '$VIMB_URI' %s\""
