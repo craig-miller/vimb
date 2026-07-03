@@ -3,7 +3,7 @@
 Name=vimb
 GenericName=Web Browser
 Comment=Access the Internet
-Exec=vimb --no-maximize %U
+Exec=vimb %U
 Terminal=false
 Icon=
 Type=Application

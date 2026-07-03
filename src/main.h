@@ -304,7 +304,7 @@ struct Vimb {
         guint   closed_max;
     } config;
     GtkCssProvider *style_provider;
-    gboolean    no_maximize;
+    gboolean    maximize;
     gboolean    incognito;
 
     WebKitWebContext *webcontext;

@@ -963,7 +963,7 @@ static GtkWidget *create_window(Client *c)
     window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), PROJECT_UCFIRST);
     gtk_window_set_default_size(GTK_WINDOW(window), WIN_WIDTH, WIN_HEIGHT);
-    if (!vb.no_maximize) {
+    if (vb.maximize) {
         gtk_window_maximize(GTK_WINDOW(window));
     }
 /* #ifndef FEATURE_NO_XEMBED */
@@ -1245,7 +1245,7 @@ static void spawn_new_instance(const char *uri)
 /* #endif */
         + (vb.incognito ? 1 : 0)
         + (vb.profile ? 2 : 0)
-        + (vb.no_maximize ? 1 : 0)
+        + (vb.maximize ? 1 : 0)
         + g_slist_length(vb.cmdargs) * 2,
         sizeof(char *)
     );
@@ -1272,8 +1272,8 @@ static void spawn_new_instance(const char *uri)
         cmd[i++] = "-p";
         cmd[i++] = vb.profile;
     }
-    if (vb.no_maximize) {
-        cmd[i++] = "--no-maximize";
+    if (vb.maximize) {
+        cmd[i++] = "--maximize";
     }
     for (GSList *l = vb.cmdargs; l; l = l->next) {
         cmd[i++] = "-C";
@@ -2354,7 +2354,7 @@ static void create_main_window(void)
     vb.main_window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(vb.main_window), PROJECT_UCFIRST);
     gtk_window_set_default_size(GTK_WINDOW(vb.main_window), WIN_WIDTH, WIN_HEIGHT);
-    if (!vb.no_maximize) {
+    if (vb.maximize) {
         gtk_window_maximize(GTK_WINDOW(vb.main_window));
     }
 
@@ -3266,7 +3266,7 @@ int main(int argc, char* argv[])
         {"incognito", 'i', 0, G_OPTION_ARG_NONE, &vb.incognito, "Run with user data read-only", NULL},
         {"profile", 'p', 0, G_OPTION_ARG_CALLBACK, (GOptionArgFunc*)profileOptionArgFunc, "Profile name", NULL},
         {"version", 'v', 0, G_OPTION_ARG_NONE, &ver, "Print version", NULL},
-        {"no-maximize", 0, 0, G_OPTION_ARG_NONE, &vb.no_maximize, "Do no attempt to maximize window", NULL},
+        {"maximize", 0, 0, G_OPTION_ARG_NONE, &vb.maximize, "Start with a maximized window", NULL},
         {"bug-info", 0, 0, G_OPTION_ARG_NONE, &buginfo, "Print used library versions", NULL},
         {NULL}
     };
