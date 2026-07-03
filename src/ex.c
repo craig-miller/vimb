@@ -991,8 +991,9 @@ static VbCmdResult ex_cleardata(Client *c, const ExArg *arg)
 
 
 /**
- * Clear cookies for all sites, or for a single host if given.
- * ':clearcookies'           -> clear every cookie
+ * Clear cookies for the current site, all sites, or a named host.
+ * ':clearcookies'           -> clear cookies for the current page's host
+ * ':clearcookies all'       -> clear every cookie
  * ':clearcookies kagi.com'  -> clear cookies whose domain is kagi.com,
  *                              .kagi.com, or any subdomain of kagi.com
  */
@@ -1046,14 +1047,36 @@ static VbCmdResult ex_clearcookies(Client *c, const ExArg *arg)
 {
     WebKitWebsiteDataManager *manager =
         webkit_network_session_get_website_data_manager(vb.session);
+    char *host = NULL;
 
     if (arg->lhs->len) {
-        webkit_website_data_manager_fetch(manager, WEBKIT_WEBSITE_DATA_COOKIES,
-                NULL, on_clearcookies_fetched, g_strdup(arg->lhs->str));
+        if (!strcmp(arg->lhs->str, "all")) {
+            webkit_website_data_manager_clear(manager, WEBKIT_WEBSITE_DATA_COOKIES,
+                    0, NULL, NULL, NULL);
+            return CMD_SUCCESS;
+        }
+        host = g_strdup(arg->lhs->str);
     } else {
-        webkit_website_data_manager_clear(manager, WEBKIT_WEBSITE_DATA_COOKIES,
-                0, NULL, NULL, NULL);
+        const char *uri = webkit_web_view_get_uri(c->webview);
+        if (uri && *uri) {
+            GUri *parsed = g_uri_parse(uri, G_URI_FLAGS_NONE, NULL);
+            if (parsed) {
+                const char *h = g_uri_get_host(parsed);
+                if (h && *h) {
+                    host = g_strdup(h);
+                }
+                g_uri_unref(parsed);
+            }
+        }
+        if (!host) {
+            vb_echo(c, MSG_ERROR, TRUE,
+                    "clearcookies: no host for current page (use ':clearcookies all' or a host)");
+            return CMD_ERROR;
+        }
     }
+
+    webkit_website_data_manager_fetch(manager, WEBKIT_WEBSITE_DATA_COOKIES,
+            NULL, on_clearcookies_fetched, host);
     return CMD_SUCCESS;
 }
 
