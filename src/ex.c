@@ -53,6 +53,7 @@ typedef enum {
     EX_BMA,
     EX_BMR,
     EX_EVAL,
+    EX_CLEARCOOKIES,
     EX_HARDCOPY,
     EX_CLEARDATA,
     EX_CMAP,
@@ -148,6 +149,7 @@ static VbCmdResult ex_bookmark(Client *c, const ExArg *arg);
 static VbCmdResult ex_eval(Client *c, const ExArg *arg);
 static void on_eval_script_finished_usermessage(GObject *source_object,
         GAsyncResult *result, gpointer user_data);
+static VbCmdResult ex_clearcookies(Client *c, const ExArg *arg);
 static VbCmdResult ex_cleardata(Client *c, const ExArg *arg);
 static VbCmdResult ex_hardcopy(Client *c, const ExArg *arg);
 static void print_failed_cb(WebKitPrintOperation* op, GError *err, Client *c);
@@ -194,6 +196,7 @@ static ExInfo commands[] = {
     {"cmap",             EX_CMAP,        ex_map,        EX_FLAG_LHS|EX_FLAG_CMD},
     {"cnoremap",         EX_CNOREMAP,    ex_map,        EX_FLAG_LHS|EX_FLAG_CMD},
     {"cunmap",           EX_CUNMAP,      ex_unmap,      EX_FLAG_LHS},
+    {"clearcookies",     EX_CLEARCOOKIES, ex_clearcookies, EX_FLAG_LHS},
     {"cleardata",        EX_CLEARDATA,   ex_cleardata,  EX_FLAG_LHS|EX_FLAG_RHS},
     {"hardcopy",         EX_HARDCOPY,    ex_hardcopy,   EX_FLAG_NONE},
     {"handler-add",      EX_HANDADD,     ex_handlers,   EX_FLAG_RHS},
@@ -984,6 +987,74 @@ static VbCmdResult ex_cleardata(Client *c, const ExArg *arg)
     webkit_website_data_manager_clear(manager, data_types, timespan, NULL, NULL, NULL);
 
     return result;
+}
+
+
+/**
+ * Clear cookies for all sites, or for a single host if given.
+ * ':clearcookies'           -> clear every cookie
+ * ':clearcookies kagi.com'  -> clear cookies whose domain is kagi.com,
+ *                              .kagi.com, or any subdomain of kagi.com
+ */
+static void on_clearcookies_fetched(GObject *source, GAsyncResult *result, gpointer data)
+{
+    WebKitWebsiteDataManager *manager = WEBKIT_WEBSITE_DATA_MANAGER(source);
+    char *host = data;
+    GError *err = NULL;
+    GList *list = webkit_website_data_manager_fetch_finish(manager, result, &err);
+
+    if (err) {
+        g_warning("clearcookies: fetch failed: %s", err->message);
+        g_error_free(err);
+        g_free(host);
+        return;
+    }
+
+    GList *to_remove = NULL;
+    gsize host_len = strlen(host);
+    for (GList *l = list; l; l = l->next) {
+        WebKitWebsiteData *d = l->data;
+        const char *name = webkit_website_data_get_name(d);
+        if (!name) continue;
+
+        const char *bare = (name[0] == '.') ? name + 1 : name;
+        gsize bare_len = strlen(bare);
+
+        gboolean match = FALSE;
+        if (bare_len == host_len && !strcmp(bare, host)) {
+            match = TRUE;
+        } else if (bare_len > host_len
+                && bare[bare_len - host_len - 1] == '.'
+                && !strcmp(bare + bare_len - host_len, host)) {
+            match = TRUE;
+        }
+        if (match) {
+            to_remove = g_list_prepend(to_remove, d);
+        }
+    }
+
+    if (to_remove) {
+        webkit_website_data_manager_remove(manager, WEBKIT_WEBSITE_DATA_COOKIES,
+                to_remove, NULL, NULL, NULL);
+        g_list_free(to_remove);
+    }
+    g_list_free_full(list, (GDestroyNotify)webkit_website_data_unref);
+    g_free(host);
+}
+
+static VbCmdResult ex_clearcookies(Client *c, const ExArg *arg)
+{
+    WebKitWebsiteDataManager *manager =
+        webkit_network_session_get_website_data_manager(vb.session);
+
+    if (arg->lhs->len) {
+        webkit_website_data_manager_fetch(manager, WEBKIT_WEBSITE_DATA_COOKIES,
+                NULL, on_clearcookies_fetched, g_strdup(arg->lhs->str));
+    } else {
+        webkit_website_data_manager_clear(manager, WEBKIT_WEBSITE_DATA_COOKIES,
+                0, NULL, NULL, NULL);
+    }
+    return CMD_SUCCESS;
 }
 
 /**
