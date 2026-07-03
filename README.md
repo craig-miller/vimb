@@ -29,7 +29,7 @@ the project page of [Vimb][].
 
 ## What the fork adds
 
-Six commits on top of upstream. Each is single-purpose and rebase-friendly.
+A stack of single-purpose, rebase-friendly commits on top of upstream:
 
 1. **WebKit-native ad + tracker + cookie-banner blocking.** Adds `VIMB_CONTENT_FILTER_STORE_PATH` to `src/config.def.h` and content-filter loading + `WebKitUserContentManager` attachment in `src/main.c`. Filters are precompiled to WebKit bytecode by [`app-misc/vimb-blocklist`](https://github.com/craig-miller/vimb-blocklist) in the zentoo overlay and loaded synchronously at `vimb_setup()` before any WebView is created.
 2. **Window background `#212121e6`.** One-line `GUI_WINDOW_BACKGROUND_COLOR` flip so the pre-paint flash on every page-load is a translucent dark grey instead of white. Flows through `gdk_rgba_parse` + GTK4 CSS `background-color`.
@@ -37,6 +37,8 @@ Six commits on top of upstream. Each is single-purpose and rebase-friendly.
 4. **`FEATURE_NO_TABS` on.** Uncomments the compile-time toggle so `:tabopen`, `gn`, `gN`, etc. spawn new vimb processes instead of in-window tabs. Composes with a scrolling tiling compositor (niri) that manages each URL as its own column.
 5. **`--no-maximize` in the shipped `.desktop`.** Vimb calls `gtk_window_maximize()` unconditionally at startup unless this flag is passed. On niri that state bypasses layout gaps and reads as an unmanageable fullscreen window; on other compositors that expect no CSD it can misalign the frame. Baked into `vimb.desktop` so every launcher path inherits it.
 6. **`SIGUSR2` → reload config across all clients.** New signal handler that re-runs `ex_run_file()` on `~/.config/vimb/config` for every open Client. Deferred via `g_idle_add` so cascading GTK/WebKit signals fire from a clean main-loop iteration. Lets external tools (a system-theme daemon, a dotfile installer) flip runtime settings without restart. `pkill -USR2 -x vimb` broadcasts to every live vimb window.
+
+7. **Dark Reader theming stack.** Adds `resources/etc-vimb-config` (a baseline system config with `dark-mode=on` + the `zm` keybind for manual toggle) and `resources/dr-fixes/` (a fixes-DB refresh script, a runtime bootstrap, and a weekly cron entry) for automatic dark theming of sites that lack native dark-mode support. Layered on top of that, `user_style()` / `user_scripts()` / config sourcing gained a system-file fallback pattern (`/usr/share/vimb/{style.css,scripts.js}`, `/etc/vimb/config`) plus a `/var/lib/vimb/scripts.js` intermediate for cron-driven refreshes to write to. Wire it up via `make install-dark-reader` (below) or the `dark-reader` USE flag (Gentoo overlay ebuild).
 
 **Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
 
@@ -46,23 +48,56 @@ Six commits on top of upstream. Each is single-purpose and rebase-friendly.
 The [zentoo overlay](https://github.com/craig-miller/zentoo-overlay) carries `www-client/vimb` wired to this branch (git-r3 live). If you're following the install guide, `sudo emerge --ask www-client/vimb` pulls the fork, WebKit-GTK 6.0, the ad-blocking helper stack, and installs `/usr/bin/vimb-theme-flip` — a small shell helper for Noctalia's `theme_mode_changed` hook.
 
 ### Other distros
-If you want to consume this branch outside the zentoo overlay:
+
+Standard build produces a stock vimb binary — none of the zentoo opinions apply until you install the extra bits on top.
 
 ```sh
 git clone -b zentoo https://github.com/craig-miller/vimb.git
 cd vimb
 make
-sudo make install
+
+# Compose what you want:
+sudo make install                # stock vimb
+sudo make install-config         # + baseline config: dark-mode=on + zm toggle
+sudo make install-dark-reader    # + Dark Reader library + weekly fixes-DB cron
 ```
 
-DEPEND is `net-libs/webkit-gtk:6` + `gui-libs/gtk:4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the overlay ebuild for the canonical set.
+**Caveat: pass `PREFIX=/usr` if you want the Dark Reader stack to actually work.** The fork's system-file lookups are hardcoded in `config.def.h` to `/usr/share/vimb/*`, `/var/lib/vimb/scripts.js`, and `/etc/vimb/config`. Default `PREFIX=/usr/local` lands the DR files in `/usr/local/share/vimb/`, which vimb won't find at runtime.
+
+`install-dark-reader` chains through `install-config` and installs the full theming stack: the Dark Reader library, a fixes-aware runtime bootstrap, a refresh script, and a `/etc/cron.weekly/vimb-dr-fixes` entry that refreshes per-site fixes weekly from upstream. It fetches the Dark Reader tarball from npm at install time; for offline / packaging use, download `darkreader-4.9.128.tgz` and pass `DR_TARBALL=/path/to/darkreader-4.9.128.tgz` to `make`.
+
+After `install-dark-reader`, populate the state file once so vimb has fixes on next launch:
+
+```sh
+sudo /usr/local/libexec/vimb-dr-fixes-refresh
+```
+
+#### Cron daemon setup
+
+The weekly refresh script is a shell wrapper in `/etc/cron.weekly/`. Your cron daemon has to be running to pick it up:
+
+- **Arch**: `sudo systemctl enable --now cronie.service`
+- **Debian / Ubuntu**: `cron` is usually already running.
+- **Alpine**: `sudo rc-update add crond && sudo rc-service crond start`
+
+**Laptop users, install anacron.** Without it, the fixes-DB stays whatever it was on the day the machine was awake at cron time; there's no catch-up on wake. Most distros package `anacron` separately from the cron daemon. Alternatively, some cron daemons ship anacron support behind a build flag — Gentoo's `sys-process/cronie[+anacron]` is one example.
+
+#### Uninstalling
+
+```sh
+sudo make uninstall                  # stock vimb
+sudo make uninstall-dark-reader      # + Dark Reader + config (chains through uninstall-config)
+sudo make uninstall-config           # just the baseline config
+```
+
+DEPEND is `webkit-gtk 6` + `gtk 4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the [zentoo overlay ebuild](https://github.com/craig-miller/zentoo-overlay/blob/main/www-client/vimb/vimb-9999.ebuild) for the canonical set.
 
 ## Rebasing on upstream
 
 ```sh
 git fetch upstream
 git rebase upstream/master
-git push origin zentoo   # force-push, keeping the six-commit shape
+git push origin zentoo   # force-push after rebase
 ```
 
 Each commit is single-purpose so conflicts, if any, are localized.
