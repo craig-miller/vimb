@@ -40,6 +40,8 @@ A stack of single-purpose, rebase-friendly commits on top of upstream:
 
 7. **Dark Reader theming stack.** Adds `resources/etc-vimb-config` (a baseline system config with `dark-mode=on` + the `zm` keybind for manual toggle) and `resources/dr-fixes/` (a fixes-DB refresh script, a runtime bootstrap, and a weekly cron entry) for automatic dark theming of sites that lack native dark-mode support. Layered on top of that, `user_style()` / `user_scripts()` / config sourcing gained a system-file fallback pattern (`/usr/share/vimb/{style.css,scripts.js}`, `/etc/vimb/config`) plus a `/var/lib/vimb/scripts.js` intermediate for cron-driven refreshes to write to. Wire it up via `make install-dark-reader` (below) or the `dark-reader` USE flag (Gentoo overlay ebuild).
 
+8. **Cookie persistence fix.** Upstream vimb's WebKitGTK 6.0 port never binds its network session to WebViews, so cookies live in memory only and vanish on quit — every site logs you out between sessions. This fork wires the session in so `~/.local/share/vimb/cookies.db` actually persists.
+
 **Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
 
 ## Installing
