@@ -78,9 +78,14 @@
 
 /* System-wide default paths — consulted only when the corresponding
  * per-user file at ~/.config/vimb/ is ABSENT. When the user file exists
- * (even zero bytes), it wins — an empty user file is the explicit opt-out. */
-#define SYSTEM_STYLE   "/usr/share/vimb/style.css"
-#define SYSTEM_SCRIPT  "/usr/share/vimb/scripts.js"
+ * (even zero bytes), it wins — an empty user file is the explicit opt-out.
+ *
+ * SYSTEM_SCRIPT has an extra middle layer, SYSTEM_SCRIPT_LOCAL, for a
+ * state-directory copy maintained by a separate package (e.g. cron-driven
+ * refreshes). Consultation order: user file -> SCRIPT_LOCAL -> SCRIPT. */
+#define SYSTEM_STYLE         "/usr/share/vimb/style.css"
+#define SYSTEM_SCRIPT_LOCAL  "/var/lib/vimb/scripts.js"
+#define SYSTEM_SCRIPT        "/usr/share/vimb/scripts.js"
 #define SYSTEM_CONFIG  "/etc/vimb/config"
 
 #define MAXIMUM_HINTS              500

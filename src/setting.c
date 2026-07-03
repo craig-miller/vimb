@@ -733,6 +733,7 @@ static int user_scripts(Client *c, const char *name, DataType type, void *value,
     if (enabled) {
         if ((vb.files[FILES_SCRIPT]
                 && g_file_get_contents(vb.files[FILES_SCRIPT], &source, NULL, NULL))
+                || g_file_get_contents(SYSTEM_SCRIPT_LOCAL, &source, NULL, NULL)
                 || g_file_get_contents(SYSTEM_SCRIPT, &source, NULL, NULL)) {
 
             script = webkit_user_script_new(
