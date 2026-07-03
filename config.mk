@@ -25,6 +25,7 @@ LIBS = gtk4 webkitgtk-6.0
 # Use 'override' to ensure these flags are added even when CFLAGS is set on command line
 override CFLAGS   += -std=c99 -pipe -Wall -fPIC
 CPPFLAGS += -DEXTENSIONDIR=\"${EXTENSIONDIR}\"
+CPPFLAGS += -DPREFIX=\"${RUNPREFIX}\"
 CPPFLAGS += -DPROJECT=\"vimb\" -DPROJECT_UCFIRST=\"Vimb\"
 CPPFLAGS += -DGSEAL_ENABLE
 CPPFLAGS += -DGTK_DISABLE_SINGLE_INCLUDES

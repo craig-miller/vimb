@@ -80,13 +80,24 @@
  * per-user file at ~/.config/vimb/ is ABSENT. When the user file exists
  * (even zero bytes), it wins — an empty user file is the explicit opt-out.
  *
- * SYSTEM_SCRIPT has an extra middle layer, SYSTEM_SCRIPT_LOCAL, for a
- * state-directory copy maintained by a separate package (e.g. cron-driven
- * refreshes). Consultation order: user file -> SCRIPT_LOCAL -> SCRIPT. */
-#define SYSTEM_STYLE         "/usr/share/vimb/style.css"
+ * SYSTEM_STYLE and SYSTEM_SCRIPT are PREFIX-relative (PREFIX injected via
+ * CPPFLAGS from the Makefile's RUNPREFIX). SYSTEM_SCRIPT_LOCAL and
+ * SYSTEM_CONFIG live at fixed FHS locations. SYSTEM_SCRIPT has an extra
+ * middle layer at SYSTEM_SCRIPT_LOCAL for a state-directory copy
+ * maintained by a separate package (e.g. cron-driven refreshes).
+ * Consultation order: user file -> SCRIPT_LOCAL -> SCRIPT.
+ *
+ * Override any of these by defining them before this header is included
+ * (savedconfig / -D on the compiler command line) — the #ifndef guards
+ * respect that. */
+#ifndef SYSTEM_STYLE
+#define SYSTEM_STYLE         PREFIX "/share/vimb/style.css"
+#endif
+#ifndef SYSTEM_SCRIPT
+#define SYSTEM_SCRIPT        PREFIX "/share/vimb/scripts.js"
+#endif
 #define SYSTEM_SCRIPT_LOCAL  "/var/lib/vimb/scripts.js"
-#define SYSTEM_SCRIPT        "/usr/share/vimb/scripts.js"
-#define SYSTEM_CONFIG  "/etc/vimb/config"
+#define SYSTEM_CONFIG        "/etc/vimb/config"
 
 #define MAXIMUM_HINTS              500
 /* default window dimensions */

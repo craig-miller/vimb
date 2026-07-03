@@ -62,8 +62,6 @@ sudo make install-config         # + baseline config: dark-mode=on + zm toggle
 sudo make install-dark-reader    # + Dark Reader library + weekly fixes-DB cron
 ```
 
-**Caveat: pass `PREFIX=/usr` if you want the Dark Reader stack to actually work.** The fork's system-file lookups are hardcoded in `config.def.h` to `/usr/share/vimb/*`, `/var/lib/vimb/scripts.js`, and `/etc/vimb/config`. Default `PREFIX=/usr/local` lands the DR files in `/usr/local/share/vimb/`, which vimb won't find at runtime.
-
 `install-dark-reader` chains through `install-config` and installs the full theming stack: the Dark Reader library, a fixes-aware runtime bootstrap, a refresh script, and a `/etc/cron.weekly/vimb-dr-fixes` entry that refreshes per-site fixes weekly from upstream. It fetches the Dark Reader tarball from npm at install time; for offline / packaging use, download `darkreader-4.9.128.tgz` and pass `DR_TARBALL=/path/to/darkreader-4.9.128.tgz` to `make`.
 
 After `install-dark-reader`, populate the state file once so vimb has fixes on next launch:
