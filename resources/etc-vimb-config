@@ -7,10 +7,6 @@
 # sync with the system theme via SIGUSR2 -> reload_config.
 set dark-mode=on
 
-# style.css is unused: Dark Reader (loaded via scripts.js) handles all
-# page theming, so a filter-based user stylesheet would double-treat.
-set stylesheet=off
-
 # Manual dark-mode toggle. Noctalia realigns on the next SIGUSR2, so this
 # is a per-session override.
 :nnoremap zm :set dark-mode!<CR>

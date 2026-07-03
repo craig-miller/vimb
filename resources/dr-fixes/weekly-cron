@@ -1,0 +1,7 @@
+#!/bin/sh
+# /etc/cron.weekly/vimb-dr-fixes — refresh Dark Reader fixes from upstream.
+#
+# Anacron handles missed runs on wake (cronie[+anacron]). Log to syslog so
+# metalog captures it; failures also emit stderr so cron mails root.
+exec logger -s -t vimb-dr-fixes -- \
+    "$(/usr/libexec/vimb-dr-fixes-refresh 2>&1)"
