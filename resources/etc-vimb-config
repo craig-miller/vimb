@@ -1,0 +1,16 @@
+# zentoo system-wide vimb config, sourced from /etc/vimb/config before the
+# user's ~/.config/vimb/config. Any of these lines can be shadowed by
+# putting a different value in the user config.
+
+# Enable dark-mode by default. Broadcasts prefers-color-scheme=dark to
+# WebKit via gtk-application-prefer-dark-theme; Noctalia flips this in
+# sync with the system theme via SIGUSR2 -> reload_config.
+set dark-mode=on
+
+# style.css is unused: Dark Reader (loaded via scripts.js) handles all
+# page theming, so a filter-based user stylesheet would double-treat.
+set stylesheet=off
+
+# Manual dark-mode toggle. Noctalia realigns on the next SIGUSR2, so this
+# is a per-session override.
+:nnoremap zm :set dark-mode!<CR>
