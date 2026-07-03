@@ -2927,6 +2927,7 @@ static WebKitWebView *webview_new(Client *c, WebKitWebView *webview)
         new = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
                     "user-content-manager", ucm,
                     "web-context", vb.webcontext,
+                    "network-session", vb.session,
                     NULL));
     }
 
