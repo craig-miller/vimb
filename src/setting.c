@@ -731,8 +731,9 @@ static int user_scripts(Client *c, const char *name, DataType type, void *value,
     webkit_user_content_manager_remove_all_scripts(ucm);
 
     if (enabled) {
-        if (vb.files[FILES_SCRIPT]
-                && g_file_get_contents(vb.files[FILES_SCRIPT], &source, NULL, NULL)) {
+        if ((vb.files[FILES_SCRIPT]
+                && g_file_get_contents(vb.files[FILES_SCRIPT], &source, NULL, NULL))
+                || g_file_get_contents(SYSTEM_SCRIPT, &source, NULL, NULL)) {
 
             script = webkit_user_script_new(
                 source, WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
@@ -769,7 +770,8 @@ static int user_style(Client *c, const char *name, DataType type, void *value, v
     ucm = webkit_web_view_get_user_content_manager(c->webview);
 
     if (enabled) {
-        if (g_file_get_contents(vb.files[FILES_USER_STYLE], &source, NULL, NULL)) {
+        if (g_file_get_contents(vb.files[FILES_USER_STYLE], &source, NULL, NULL)
+                || g_file_get_contents(SYSTEM_STYLE, &source, NULL, NULL)) {
             style = webkit_user_style_sheet_new(
                 source, WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
                 WEBKIT_USER_STYLE_LEVEL_USER, NULL, NULL
@@ -778,9 +780,8 @@ static int user_style(Client *c, const char *name, DataType type, void *value, v
             webkit_user_content_manager_add_style_sheet(ucm, style);
             webkit_user_style_sheet_unref(style);
             g_free(source);
-        } else {
-            g_message("Could not read style file: %s", vb.files[FILES_USER_STYLE]);
         }
+        /* silent when neither user nor system file exists */
     } else {
         webkit_user_content_manager_remove_all_style_sheets(ucm);
     }

@@ -182,6 +182,7 @@ static gboolean reload_config_idle_cb(gpointer user_data)
 {
     Client *c;
     for (c = vb.clients; c; c = c->next) {
+        ex_run_file(c, SYSTEM_CONFIG);
         ex_run_file(c, vb.files[FILES_CONFIG]);
     }
     return G_SOURCE_REMOVE;
@@ -2633,6 +2634,7 @@ Client *vb_tab_new(Client *related, const char *uri)
     c->state.enable_register = TRUE;
 
     /* Read config file */
+    ex_run_file(c, SYSTEM_CONFIG);
     ex_run_file(c, vb.files[FILES_CONFIG]);
 
     /* Switch to the new tab and focus its webview */

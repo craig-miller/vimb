@@ -76,6 +76,13 @@
 #define SETTING_STATUS_SSL_CSS                "background-color:#95e454;color:#000;"
 #define SETTING_STATUS_SSL_INVLID_CSS         "background-color:#f77;color:#000;"
 
+/* System-wide default paths — consulted only when the corresponding
+ * per-user file at ~/.config/vimb/ is ABSENT. When the user file exists
+ * (even zero bytes), it wins — an empty user file is the explicit opt-out. */
+#define SYSTEM_STYLE   "/usr/share/vimb/style.css"
+#define SYSTEM_SCRIPT  "/usr/share/vimb/scripts.js"
+#define SYSTEM_CONFIG  "/etc/vimb/config"
+
 #define MAXIMUM_HINTS              500
 /* default window dimensions */
 #define WIN_WIDTH                  800
