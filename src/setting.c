@@ -111,7 +111,6 @@ void setting_init(Client *c)
     setting_add(c, "hint-keys-same-length", TYPE_BOOLEAN, &off, NULL, 0, NULL);
     setting_add(c, "hint-match-element", TYPE_BOOLEAN, &on, NULL, 0, NULL);
     setting_add(c, "histignore", TYPE_CHAR, &SETTING_HISTIGNORE, histignore, 0, NULL);
-    setting_add(c, "html5-database", TYPE_BOOLEAN, &on, webkit, 0, "enable-html5-database");
     setting_add(c, "html5-local-storage", TYPE_BOOLEAN, &on, webkit, 0, "enable-html5-local-storage");
     /* WebKitGTK 6.0: enable-hyperlink-auditing is deprecated and does nothing - setting removed */
     /* setting_add(c, "hyperlink-auditing", TYPE_BOOLEAN, &off, webkit, 0, "enable-hyperlink-auditing"); */
