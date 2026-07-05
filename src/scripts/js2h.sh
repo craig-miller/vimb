@@ -14,13 +14,16 @@ if [ ! -r "$FILE" ]; then
 fi
 
 # Put file extension and _ before file name, turn all to upper case to get the
-# constant name.
-CONSTANT=$(echo "$FILE" | sed -e 's:.*/::g' -e 's/.*\.css$/CSS_&/g' -e 's/.*\.js$/JS_&/g' -e 's/\.css$//' -e 's/\.js$//' | tr a-z A-Z)
+# constant name. Convert hyphens to underscores so filenames like
+# pass-detector.js yield a valid C identifier JS_PASS_DETECTOR.
+CONSTANT=$(echo "$FILE" | sed -e 's:.*/::g' -e 's/.*\.css$/CSS_&/g' -e 's/.*\.js$/JS_&/g' -e 's/\.css$//' -e 's/\.js$//' -e 's/-/_/g' | tr a-z A-Z)
 
 # minify the script
 cat $FILE | \
-# remove single line comments
-sed -e 's|^//.*$||g' | \
+# strip standalone // comment lines (indented or column-0)
+sed -e 's|^[[:space:]]*//.*$||g' | \
+# strip inline // comments — protects URL-like :// and path-like //
+sed -e 's|\([^/:]\)//[^"]*$|\1|g' | \
 # remove linebreaks
 tr '\n\r' ' ' | \
 # remove unneeded whitespace
