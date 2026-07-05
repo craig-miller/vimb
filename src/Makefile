@@ -51,3 +51,5 @@ config.h:
 -include $(OBJ:.o=.d)
 
 .PHONY: all clean
+
+pass-manager.o: pass-manager.h
