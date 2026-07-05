@@ -42,6 +42,7 @@
 #include "completion.h"
 #include "ex.h"
 #include "ext-proxy.h"
+#include "pass-ui.h"
 #include "handler.h"
 #include "history.h"
 #include "input.h"
@@ -2258,6 +2259,8 @@ static void vimb_setup(void)
     /* Connect once to the network session (shared across all webviews) */
     g_signal_connect(vb.session, "download-started", G_CALLBACK(on_webctx_download_started), NULL);
 
+    vb_pass_ui_init();
+
     /* WebKitGTK 6.0: D-Bus proxy tracking removed - using WebKitUserMessage */
 
     /* initialize the modes */
@@ -2969,6 +2972,7 @@ static WebKitWebView *webview_new(Client *c, WebKitWebView *webview)
     /* WebKitGTK 6.0: Third parameter specifies world name (NULL for default world) */
     webkit_user_content_manager_register_script_message_handler(ucm, "focus", NULL);
     webkit_user_content_manager_register_script_message_handler(ucm, "scroll", NULL);
+    vb_pass_ui_register_ucm(ucm);
     g_signal_connect(ucm, "script-message-received::focus", G_CALLBACK(on_script_message_focus), NULL);
     g_signal_connect(ucm, "script-message-received::scroll", G_CALLBACK(on_script_message_scroll), NULL);
 

@@ -53,3 +53,4 @@ config.h:
 .PHONY: all clean
 
 pass-manager.o: pass-manager.h
+pass-ui.o:      pass-ui.h pass-manager.h scripts/scripts.h

@@ -33,6 +33,7 @@
 #include "completion.h"
 #include "config.h"
 #include "ex.h"
+#include "pass-ui.h"
 #include "handler.h"
 #include "hints.h"
 #include "history.h"
@@ -69,6 +70,8 @@ typedef enum {
     EX_NUNMAP,
     EX_NORMAL,
     EX_OPEN,
+    EX_PASS_FILL,
+    EX_PASS_FORGET,
 #ifdef FEATURE_QUEUE
     EX_QCLEAR,
     EX_QPOP,
@@ -157,6 +160,8 @@ static VbCmdResult ex_map(Client *c, const ExArg *arg);
 static VbCmdResult ex_unmap(Client *c, const ExArg *arg);
 static VbCmdResult ex_normal(Client *c, const ExArg *arg);
 static VbCmdResult ex_open(Client *c, const ExArg *arg);
+static VbCmdResult ex_pass_fill(Client *c, const ExArg *arg);
+static VbCmdResult ex_pass_forget(Client *c, const ExArg *arg);
 #ifdef FEATURE_QUEUE
 static VbCmdResult ex_queue(Client *c, const ExArg *arg);
 #endif
@@ -210,6 +215,8 @@ static ExInfo commands[] = {
     {"normal",           EX_NORMAL,      ex_normal,     EX_FLAG_BANG|EX_FLAG_CMD},
     {"nunmap",           EX_NUNMAP,      ex_unmap,      EX_FLAG_LHS},
     {"open",             EX_OPEN,        ex_open,       EX_FLAG_CMD},
+    {"pass-fill",        EX_PASS_FILL,   ex_pass_fill,  EX_FLAG_RHS},
+    {"pass-forget",      EX_PASS_FORGET, ex_pass_forget,EX_FLAG_RHS},
     {"quit",             EX_QUIT,        ex_quit,       EX_FLAG_NONE|EX_FLAG_BANG},
     {"quitall",          EX_QUITALL,     ex_quitall,    EX_FLAG_NONE|EX_FLAG_BANG},
 #ifdef FEATURE_QUEUE
@@ -1737,4 +1744,14 @@ static void history_rewind(void)
 
         OVERWRITE_STRING(exhist.prefix, NULL);
     }
+}
+
+static VbCmdResult ex_pass_fill(Client *c, const ExArg *arg)
+{
+    return vb_pass_ui_fill(c, (arg->rhs && arg->rhs->len) ? arg->rhs->str : NULL);
+}
+
+static VbCmdResult ex_pass_forget(Client *c, const ExArg *arg)
+{
+    return vb_pass_ui_forget(c, (arg->rhs && arg->rhs->len) ? arg->rhs->str : NULL);
 }

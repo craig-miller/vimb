@@ -26,6 +26,7 @@
 #include "ext-proxy.h"
 #include "main.h"
 #include "setting.h"
+#include "pass-ui.h"
 #include "scripts/scripts.h"
 #include "shortcut.h"
 #include "regex.h"
@@ -61,6 +62,7 @@ static int hardware_acceleration_policy(Client *c, const char *name, DataType ty
 static int input_autohide(Client *c, const char *name, DataType type, void *value, void *data);
 static int internal(Client *c, const char *name, DataType type, void *value, void *data);
 static int notification(Client *c, const char *name, DataType type, void *value, void *data);
+static int pass_enabled_setter(Client *c, const char *name, DataType type, void *value, void *data);
 static int headers(Client *c, const char *name, DataType type, void *value, void *data);
 static int histignore(Client *c, const char *name, DataType type, void *value, void *data);
 static int intelligent_tracking_prevention(Client *c, const char *name, DataType type, void *value, void *data);
@@ -134,6 +136,7 @@ void setting_init(Client *c)
     i = SETTING_DEFAULT_MONOSPACE_FONT_SIZE;
     setting_add(c, "monospace-font-size", TYPE_INTEGER, &i, webkit, 0, "default-monospace-font-size");
     setting_add(c, "notification", TYPE_CHAR, &"ask", notification, FLAG_NODUP, NULL);
+    setting_add(c, "pass-enabled", TYPE_BOOLEAN, &on, pass_enabled_setter, 0, NULL);
     /* WebKitGTK 6.0: enable-offline-web-application-cache is deprecated and does nothing - setting removed */
     /* setting_add(c, "offline-cache", TYPE_BOOLEAN, &on, webkit, 0, "enable-offline-web-application-cache"); */
     /* WebKitGTK 6.0: enable-plugins is deprecated and removed - setting removed */
@@ -750,7 +753,7 @@ static int user_scripts(Client *c, const char *name, DataType type, void *value,
      * Focus tracking detects when editable elements gain/lose focus to
      * automatically switch vimb between normal and input modes. */
     script = webkit_user_script_new(
-            JS_HINTS " " JS_SCROLL " " JS_SCROLL_OBSERVER " " JS_FOCUS_TRACKING,
+            JS_HINTS " " JS_SCROLL " " JS_SCROLL_OBSERVER " " JS_FOCUS_TRACKING " " JS_PASS_DETECTOR " " JS_PASS_DETECTOR_HOOKS,
             WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
             WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_END, NULL, NULL);
     webkit_user_content_manager_add_script(ucm, script);
@@ -891,5 +894,11 @@ static int webkit_spell_checking_language(Client *c, const char *name, DataType 
             (const char * const *)languages);
     g_strfreev(languages);
 
+    return CMD_SUCCESS;
+}
+
+static int pass_enabled_setter(Client *c, const char *name, DataType type, void *value, void *data)
+{
+    vb_pass_ui_set_enabled(*(gboolean*)value);
     return CMD_SUCCESS;
 }
