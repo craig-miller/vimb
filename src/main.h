@@ -329,6 +329,7 @@ Client *vb_get_client_for_page_id(guint64 pageid);
 char *vb_input_get_text(Client *c);
 void vb_input_set_text(Client *c, const char *text);
 void vb_input_update_style(Client *c);
+void vb_chrome_set_mode_class(Client *c, const char *class_name);
 gboolean vb_load_uri(Client *c, const Arg *arg);
 void vb_mode_add(char id, ModeTransitionFunc enter, ModeTransitionFunc leave,
     ModeKeyFunc keypress, ModeInputChangedFunc input_changed);

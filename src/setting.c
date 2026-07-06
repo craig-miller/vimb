@@ -59,6 +59,7 @@ static int fullscreen(Client *c, const char *name, DataType type, void *value, v
 static int geolocation(Client *c, const char *name, DataType type, void *value, void *data);
 static int gui_style(Client *c, const char *name, DataType type, void *value, void *data);
 static int hardware_acceleration_policy(Client *c, const char *name, DataType type, void *value, void *data);
+static int hint_style(Client *c, const char *name, DataType type, void *value, void *data);
 static int input_autohide(Client *c, const char *name, DataType type, void *value, void *data);
 static int internal(Client *c, const char *name, DataType type, void *value, void *data);
 static int notification(Client *c, const char *name, DataType type, void *value, void *data);
@@ -191,14 +192,36 @@ void setting_init(Client *c)
     setting_add(c, "spell-checking-languages", TYPE_CHAR, &"en_US", webkit_spell_checking_language, FLAG_LIST|FLAG_NODUP, NULL);
 
     /* gui style settings vimb */
+    setting_add(c, "command-css", TYPE_CHAR, &SETTING_COMMAND_CSS, gui_style, 0, NULL);
     setting_add(c, "completion-css", TYPE_CHAR, &SETTING_COMPLETION_CSS, gui_style, 0, NULL);
     setting_add(c, "completion-hover-css", TYPE_CHAR, &SETTING_COMPLETION_HOVER_CSS, gui_style, 0, NULL);
     setting_add(c, "completion-selected-css", TYPE_CHAR, &SETTING_COMPLETION_SELECTED_CSS, gui_style, 0, NULL);
+    /* Page-level hint labels (drawn over links during f/F). Route through
+     * hint_style so the CSS_HINTS overlay re-injects on setting change. */
+    setting_add(c, "hint-focus-css", TYPE_CHAR, &SETTING_HINT_FOCUS_CSS, hint_style, 0, NULL);
+    setting_add(c, "hint-label-css", TYPE_CHAR, &SETTING_HINT_LABEL_CSS, hint_style, 0, NULL);
+    setting_add(c, "hint-link-css", TYPE_CHAR, &SETTING_HINT_LINK_CSS, hint_style, 0, NULL);
+    setting_add(c, "hint-mode-css", TYPE_CHAR, &SETTING_HINT_MODE_CSS, gui_style, 0, NULL);
     setting_add(c, "input-css", TYPE_CHAR, &SETTING_INPUT_CSS, gui_style, 0, NULL);
     setting_add(c, "input-error-css", TYPE_CHAR, &SETTING_INPUT_ERROR_CSS, gui_style, 0, NULL);
+    setting_add(c, "insert-css", TYPE_CHAR, &SETTING_INSERT_CSS, gui_style, 0, NULL);
+    setting_add(c, "pass-css", TYPE_CHAR, &SETTING_PASS_CSS, gui_style, 0, NULL);
+    setting_add(c, "passthrough-css", TYPE_CHAR, &SETTING_PASSTHROUGH_CSS, gui_style, 0, NULL);
     setting_add(c, "status-css", TYPE_CHAR, &SETTING_STATUS_CSS, gui_style, 0, NULL);
     setting_add(c, "status-ssl-css", TYPE_CHAR, &SETTING_STATUS_SSL_CSS, gui_style, 0, NULL);
     setting_add(c, "status-ssl-invalid-css", TYPE_CHAR, &SETTING_STATUS_SSL_INVLID_CSS, gui_style, 0, NULL);
+
+    /* Force a final user_style re-injection now that all hint-*-css settings
+     * are registered — the initial call fired during setting_add("stylesheet")
+     * above ran before those settings existed, so the CSS_HINTS overlay is
+     * absent from the stylesheet stack until we re-fire user_style here. */
+    {
+        Setting *ss = g_hash_table_lookup(c->config.settings, "stylesheet");
+        if (ss) {
+            gboolean v = ss->value.i;
+            user_style(c, "stylesheet", TYPE_BOOLEAN, &v, NULL);
+        }
+    }
 
     /* initialize the shortcuts and set the default shortcuts */
     shortcut_add(c->config.shortcuts, "dl", "https://duckduckgo.com/html/?q=$0");
@@ -762,41 +785,96 @@ static int user_scripts(Client *c, const char *name, DataType type, void *value,
     return CMD_SUCCESS;
 }
 
-static int user_style(Client *c, const char *name, DataType type, void *value, void *data)
+/* Rebuild the full page-level stylesheet stack for client c:
+ *   1. remove all existing sheets from the UCM
+ *   2. if enabled, inject the user's ~/.config/vimb/style.css (or the
+ *      system fallback) at USER level
+ *   3. inject CSS_HINTS at AUTHOR level
+ *   4. inject the hint-label / hint-link / hint-focus overrides overlay
+ *      at AUTHOR level (last so same-selector rules win the cascade)
+ * Callers pass the current values for the three hint-*-css settings.
+ * NULL for any of them skips the overlay entirely (needed during
+ * setting_init before those settings are registered). */
+static void
+inject_stylesheet_stack(Client *c, gboolean enabled,
+                        const char *hlbl, const char *hlnk, const char *hfcs)
 {
-    WebKitUserContentManager *ucm;
+    WebKitUserContentManager *ucm =
+        webkit_web_view_get_user_content_manager(c->webview);
     WebKitUserStyleSheet *style;
     gchar *source;
 
-    gboolean enabled = *(gboolean*)value;
-
-    ucm = webkit_web_view_get_user_content_manager(c->webview);
+    webkit_user_content_manager_remove_all_style_sheets(ucm);
 
     if (enabled) {
         if (g_file_get_contents(vb.files[FILES_USER_STYLE], &source, NULL, NULL)
                 || g_file_get_contents(SYSTEM_STYLE, &source, NULL, NULL)) {
             style = webkit_user_style_sheet_new(
                 source, WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
-                WEBKIT_USER_STYLE_LEVEL_USER, NULL, NULL
-            );
-
+                WEBKIT_USER_STYLE_LEVEL_USER, NULL, NULL);
             webkit_user_content_manager_add_style_sheet(ucm, style);
             webkit_user_style_sheet_unref(style);
             g_free(source);
         }
         /* silent when neither user nor system file exists */
-    } else {
-        webkit_user_content_manager_remove_all_style_sheets(ucm);
     }
 
-    /* Inject the global styles with author level to allow restyling by user
-     * style sheets. */
     style = webkit_user_style_sheet_new(CSS_HINTS,
             WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
             WEBKIT_USER_STYLE_LEVEL_AUTHOR, NULL, NULL);
     webkit_user_content_manager_add_style_sheet(ucm, style);
     webkit_user_style_sheet_unref(style);
 
+    if (hlbl && hlnk && hfcs) {
+        gchar *overrides = g_strdup_printf(
+            "span[vimbhint^='label']{%s}"
+            "*[vimbhint^='hint']{%s}"
+            "*[vimbhint='hint focus']{%s}",
+            hlbl, hlnk, hfcs);
+        style = webkit_user_style_sheet_new(overrides,
+                WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
+                WEBKIT_USER_STYLE_LEVEL_AUTHOR, NULL, NULL);
+        webkit_user_content_manager_add_style_sheet(ucm, style);
+        webkit_user_style_sheet_unref(style);
+        g_free(overrides);
+    }
+}
+
+static int user_style(Client *c, const char *name, DataType type, void *value, void *data)
+{
+    gboolean enabled = *(gboolean*)value;
+    Setting *hlbl_s = g_hash_table_lookup(c->config.settings, "hint-label-css");
+    Setting *hlnk_s = g_hash_table_lookup(c->config.settings, "hint-link-css");
+    Setting *hfcs_s = g_hash_table_lookup(c->config.settings, "hint-focus-css");
+    inject_stylesheet_stack(c, enabled,
+                            hlbl_s ? hlbl_s->value.s : NULL,
+                            hlnk_s ? hlnk_s->value.s : NULL,
+                            hfcs_s ? hfcs_s->value.s : NULL);
+    return CMD_SUCCESS;
+}
+
+/* Setter for hint-label-css / hint-link-css / hint-focus-css. Recomposes
+ * the hint overrides overlay using the just-changed value for `name` +
+ * the stored values for the other two. NOTE: setting_set_value calls
+ * this BEFORE persisting the new value into prop->value.s, so we must
+ * NOT read the changed setting from the hash table here — use `value`. */
+static int hint_style(Client *c, const char *name, DataType type, void *value, void *data)
+{
+    Setting *hlbl_s = g_hash_table_lookup(c->config.settings, "hint-label-css");
+    Setting *hlnk_s = g_hash_table_lookup(c->config.settings, "hint-link-css");
+    Setting *hfcs_s = g_hash_table_lookup(c->config.settings, "hint-focus-css");
+    if (!hlbl_s || !hlnk_s || !hfcs_s) return CMD_SUCCESS;
+
+    const char *hlbl = g_strcmp0(name, "hint-label-css") == 0
+                       ? (const char*)value : hlbl_s->value.s;
+    const char *hlnk = g_strcmp0(name, "hint-link-css") == 0
+                       ? (const char*)value : hlnk_s->value.s;
+    const char *hfcs = g_strcmp0(name, "hint-focus-css") == 0
+                       ? (const char*)value : hfcs_s->value.s;
+
+    Setting *ss = g_hash_table_lookup(c->config.settings, "stylesheet");
+    gboolean enabled = ss ? ss->value.i : TRUE;
+    inject_stylesheet_stack(c, enabled, hlbl, hlnk, hfcs);
     return CMD_SUCCESS;
 }
 

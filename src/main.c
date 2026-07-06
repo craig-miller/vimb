@@ -67,6 +67,7 @@ static void input_print(Client *c, MessageType type, gboolean hide,
 static gboolean is_plausible_uri(const char *path);
 static void marks_clear(Client *c);
 static void mode_free(Mode *mode);
+static const char *mode_id_to_class(char id);
 static void on_textbuffer_changed(GtkTextBuffer *textbuffer, gpointer user_data);
 static gboolean on_input_key_pressed(GtkEventControllerKey *controller, guint keyval,
         guint keycode, GdkModifierType state, gpointer user_data);
@@ -372,6 +373,7 @@ void vb_enter(Client *c, char id)
     }
 
 #ifndef TESTLIB
+    vb_chrome_set_mode_class(c, mode_id_to_class(id));
     vb_statusbar_update(c);
 #endif
 }
@@ -455,6 +457,58 @@ void vb_input_update_style(Client *c)
         gtk_widget_add_css_class(c->input, "error");
     } else {
         gtk_widget_remove_css_class(c->input, "error");
+    }
+}
+
+/* All mode classes that vb_chrome_set_mode_class manages. Keep in sync
+ * with the mode-CSS selectors in vb_gui_style_update and the hint
+ * transitions in hints.c. */
+static const char *vb_mode_classes[] = {
+    "insert", "command", "hint", "pass", "passthrough", NULL
+};
+
+/**
+ * Set the mode CSS class on the statusbar and input widgets — removes any
+ * previous mode class, then adds the requested one. Called from vb_enter
+ * for every mode transition and from hints.c on hint-flag toggle. NULL
+ * class_name means "no class" (normal mode).
+ */
+void vb_chrome_set_mode_class(Client *c, const char *class_name)
+{
+    if (!c) {
+        return;
+    }
+    GtkWidget *statusbar = c->statusbar.box ? GTK_WIDGET(c->statusbar.box) : NULL;
+    for (int i = 0; vb_mode_classes[i]; i++) {
+        if (statusbar && GTK_IS_WIDGET(statusbar)) {
+            gtk_widget_remove_css_class(statusbar, vb_mode_classes[i]);
+        }
+        if (c->input && GTK_IS_WIDGET(c->input)) {
+            gtk_widget_remove_css_class(c->input, vb_mode_classes[i]);
+        }
+    }
+    if (class_name) {
+        if (statusbar && GTK_IS_WIDGET(statusbar)) {
+            gtk_widget_add_css_class(statusbar, class_name);
+        }
+        if (c->input && GTK_IS_WIDGET(c->input)) {
+            gtk_widget_add_css_class(c->input, class_name);
+        }
+    }
+}
+
+/* Map a vimb mode id to its CSS class name — NULL for normal mode (no
+ * class needed). Hint sub-mode is not represented here; it's toggled
+ * independently from hints.c on FLAG_HINTING transitions. */
+static const char *mode_id_to_class(char id)
+{
+    switch (id) {
+        case 'i': return "insert";
+        case 'c': return "command";
+        case 'p': return "passthrough";
+        case 'P':
+        case 'F': return "pass";
+        default:  return NULL;  /* 'n' = normal, no class */
     }
 }
 
@@ -2822,16 +2876,28 @@ void vb_gui_style_update(Client *c, const char *setting_name_new, const char *se
     GString *style_sheet = g_string_new(GUI_STYLE_CSS_BASE);
     size_t i;
 
-    /* Mapping from vimb config setting name to css style sheet string */
+    /* Mapping from vimb config setting name to css style sheet string.
+     * Mode-aware selectors (`#statusbar.<mode>`, `#input.<mode>`) are
+     * layered on top of the base `#statusbar` / `#input` rules via
+     * classes added by vb_chrome_set_mode_class on mode transitions. */
     static const char *setting_style_map[][2] = {
-        {"completion-css",              " #completion{%s}"},
-        {"completion-hover-css",        " #completion:hover{%s}"},
-        {"completion-selected-css",     " #completion:selected{%s}"},
+        {"completion-css",              " #completion, #completion row{%s}"},
+        {"completion-hover-css",        " #completion:hover, #completion row:hover{%s}"},
+        {"completion-selected-css",     " #completion:selected, #completion row:selected{%s}"},
         {"input-css",                   " #input{%s}"},
         {"input-error-css",             " #input.error{%s}"},
         {"status-css",                  " #statusbar{%s}"},
         {"status-ssl-css",              " #statusbar.secure{%s}"},
         {"status-ssl-invalid-css",      " #statusbar.unsecure{%s}"},
+        /* Mode overlays target the statusbar only. Applying them to #input
+         * as well interacts with typing (font-weight changes shift caret
+         * metrics per keystroke), so the input line stays on its base
+         * `input-css` styling regardless of mode. */
+        {"insert-css",                  " #statusbar.insert{%s}"},
+        {"command-css",                 " #statusbar.command{%s}"},
+        {"hint-mode-css",               " #statusbar.hint{%s}"},
+        {"pass-css",                    " #statusbar.pass{%s}"},
+        {"passthrough-css",             " #statusbar.passthrough{%s}"},
         {0, 0},
     };
 

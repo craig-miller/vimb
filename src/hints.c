@@ -94,6 +94,10 @@ void hints_clear(Client *c)
 {
     if (c->mode->flags & FLAG_HINTING) {
         c->mode->flags &= ~FLAG_HINTING;
+        /* Revert chrome from `.hint` back to the base command-mode class
+         * (hinting only fires from mode 'c'). vb_enter is not called on
+         * hint-flag clear, so we do the class swap manually. */
+        vb_chrome_set_mode_class(c, "command");
         /* Note: We intentionally do NOT clear FLAG_NEW_TAB here.
          * The flag will be cleared by decide_navigation_action after it opens
          * the new tab. If we clear it here, there's a race condition: the
@@ -134,6 +138,8 @@ void hints_create(Client *c, const char *input)
 
     if (!(c->mode->flags & FLAG_HINTING)) {
         c->mode->flags |= FLAG_HINTING;
+        /* Swap `.command` for `.hint` on the chrome; reverted in hints_clear. */
+        vb_chrome_set_mode_class(c, "hint");
 
         /* For 't' mode (open in new tab), set open_in_new_tab flag on client.
          * This is needed because the JavaScript navigation may start before

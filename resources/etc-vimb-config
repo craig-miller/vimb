@@ -10,3 +10,11 @@ set dark-mode=on
 # Manual dark-mode toggle. Noctalia realigns on the next SIGUSR2, so this
 # is a per-session override.
 :nnoremap zm :set dark-mode!<CR>
+
+# Noctalia-driven chrome palette. This file is rendered by Noctalia's
+# [theme.templates.user.vimb] block into ~/.config/vimb/noctalia-theme,
+# then a post_hook fires `pkill -USR2 vimb` — SIGUSR2 re-runs this config,
+# which re-sources the file, which re-fires every `set *-css=...` line,
+# regenerating the GTK CSS provider live. Silent no-op if the file
+# doesn't exist yet (before noctalia has rendered it once).
+source ~/.config/vimb/noctalia-theme

@@ -50,16 +50,20 @@
 #define SHOWCMD_LEN                 10
 /* css applied to the gui elements regardless of user's settings */
 #define GUI_STYLE_CSS_BASE          "#input text{background-color:inherit;color:inherit;caret-color:@color;font:inherit;}"
-/* define this to set the initial background color for the GTK window */
-#define GUI_WINDOW_BACKGROUND_COLOR "#212121e6"
+/* initial background color for the GTK window — Noctalia-Default surface */
+#define GUI_WINDOW_BACKGROUND_COLOR "#1e1e2ee6"
 
 #define INCSEARCH_MATCHES_LIMIT 1000
 
 /* default font size for fonts in webview */
 #define SETTING_DEFAULT_FONT_SIZE             16
 #define SETTING_DEFAULT_MONOSPACE_FONT_SIZE   13
-#define SETTING_GUI_FONT_NORMAL               "font-size:10pt;font-family:monospace;"
-#define SETTING_GUI_FONT_EMPH                 "font-weight:bold;font-size:10pt;font-family:monospace;"
+/* 12pt renders on a whole-pixel baseline at 96 DPI (16 px). 10pt (13.33 px)
+ * caused per-character caret jitter under Wayland + GTK4 on the M1 kernel's
+ * fractional-scaling stack. Keep both weights on the same size so the input
+ * line and statusbar have matching baselines. */
+#define SETTING_GUI_FONT_NORMAL               "font-size:12pt;font-family:monospace;"
+#define SETTING_GUI_FONT_EMPH                 "font-weight:bold;font-size:12pt;font-family:monospace;"
 #define SETTING_HOME_PAGE                     "https://kagi.com"
 #define SETTING_DOWNLOAD_PATH                 "~/Downloads"
 /* cookie-accept allowed values always, origin, never */
@@ -67,14 +71,36 @@
 #define SETTING_HINT_KEYS                     "0123456789"
 #define SETTING_HISTIGNORE                    "^(about:)|(file:)"
 #define SETTING_DOWNLOAD_COMMAND              "/bin/sh -c \"curl -sLJOC - -e '$VIMB_URI' %s\""
-#define SETTING_COMPLETION_CSS                "color:#fff;background-color:#656565;" SETTING_GUI_FONT_NORMAL
-#define SETTING_COMPLETION_HOVER_CSS          "background-color:#777;"
-#define SETTING_COMPLETION_SELECTED_CSS       "color:#f6f3e8;background-color:#888;"
-#define SETTING_INPUT_CSS                     "background-color:#fff;color:#000;" SETTING_GUI_FONT_NORMAL
-#define SETTING_INPUT_ERROR_CSS               "background-color:#f77;" SETTING_GUI_FONT_EMPH
-#define SETTING_STATUS_CSS                    "color:#fff;background-color:#000;" SETTING_GUI_FONT_EMPH
-#define SETTING_STATUS_SSL_CSS                "background-color:#95e454;color:#000;"
-#define SETTING_STATUS_SSL_INVLID_CSS         "background-color:#f77;color:#000;"
+
+/* Chrome color defaults — Noctalia-Default dark palette.
+ * Rendered live by Noctalia's [theme.templates.user.vimb] into
+ * ~/.config/vimb/noctalia-theme, sourced by /etc/vimb/config after
+ * SIGUSR2. These constants are the cold-boot / no-noctalia fallback. */
+#define SETTING_COMPLETION_CSS                "color:#cdd6f4;background-color:#313244;" SETTING_GUI_FONT_NORMAL
+#define SETTING_COMPLETION_HOVER_CSS          "background-color:#45475a;"
+#define SETTING_COMPLETION_SELECTED_CSS       "color:#1e1e2e;background-color:#89b4fa;"
+#define SETTING_INPUT_CSS                     "background-color:#1e1e2e;color:#cdd6f4;" SETTING_GUI_FONT_NORMAL
+#define SETTING_INPUT_ERROR_CSS               "background-color:#f38ba8;color:#1e1e2e;" SETTING_GUI_FONT_EMPH
+#define SETTING_STATUS_CSS                    "background-color:#1e1e2e;color:#cdd6f4;" SETTING_GUI_FONT_EMPH
+#define SETTING_STATUS_SSL_CSS                "background-color:#1e1e2e;color:#a6e3a1;" SETTING_GUI_FONT_EMPH
+#define SETTING_STATUS_SSL_INVLID_CSS         "background-color:#f38ba8;color:#1e1e2e;" SETTING_GUI_FONT_EMPH
+
+/* Mode-aware chrome — statusbar + inputbox tint by current vim mode.
+ * Applied via `.insert` / `.command` / `.hint` / `.pass` / `.passthrough`
+ * CSS classes added by vb_chrome_set_mode_class on mode transitions. */
+#define SETTING_INSERT_CSS                    "background-color:#89b4fa;color:#1e1e2e;" SETTING_GUI_FONT_EMPH
+#define SETTING_COMMAND_CSS                   "background-color:#313244;color:#cdd6f4;" SETTING_GUI_FONT_EMPH
+#define SETTING_HINT_MODE_CSS                 "background-color:#a6e3a1;color:#1e1e2e;" SETTING_GUI_FONT_EMPH
+#define SETTING_PASS_CSS                      "background-color:#f9e2af;color:#1e1e2e;" SETTING_GUI_FONT_EMPH
+#define SETTING_PASSTHROUGH_CSS               "background-color:#45475a;color:#a6e3a1;" SETTING_GUI_FONT_EMPH
+
+/* Page-level hint labels — the boxes and highlights that vimb draws over
+ * links during f/F hinting. Overlaid at author-level over CSS_HINTS so
+ * these settings win same-selector cascades. !important preserved on the
+ * link/focus rules since page CSS often specifies backgrounds. */
+#define SETTING_HINT_LABEL_CSS                "background-color:#313244;border:1px solid #45475a;color:#cdd6f4;opacity:0.95;"
+#define SETTING_HINT_LINK_CSS                 "background-color:#a6e3a1 !important;color:#1e1e2e !important;"
+#define SETTING_HINT_FOCUS_CSS                "background-color:#89b4fa !important;color:#1e1e2e !important;"
 
 /* System-wide default paths — consulted only when the corresponding
  * per-user file at ~/.config/vimb/ is ABSENT. When the user file exists
