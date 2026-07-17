@@ -68,7 +68,14 @@ static void pending_save_free(gpointer p)
 /* Fill-picker state — single-tab at a time for phase 1. */
 typedef struct {
     Client *client;
-    GList *records;     /* GList<VbPassRecord*> owned by us */
+    GList *records;                  /* GList<VbPassRecord*> owned by us */
+    GtkWidget *scrolled;             /* GtkScrolledWindow packed into popover slot */
+    GtkWidget *listview;
+    GtkSingleSelection *selection;
+    GtkFilterListModel *filter_model;
+    GtkCustomFilter *filter;
+    GtkStringList *store;            /* backing list of username strings */
+    GString *needle;                 /* current filter text */
 } FillCtx;
 static FillCtx *fill_ctx = NULL;
 
@@ -77,10 +84,15 @@ static FillCtx *fill_ctx = NULL;
 static void     fill_picker_enter(Client *c);
 static void     fill_picker_leave(Client *c);
 static VbResult fill_picker_keypress(Client *c, int key);
+static void     fill_picker_input_changed(Client *c, const char *text);
 
 static void fill_ctx_reset(void)
 {
     if (!fill_ctx) return;
+    /* Unparent the scrolled window — that drops the container's ref chain
+     * on listview/selection/filter_model/store, which then die by refcount. */
+    if (fill_ctx->scrolled) gtk_widget_unparent(fill_ctx->scrolled);
+    if (fill_ctx->needle)   g_string_free(fill_ctx->needle, TRUE);
     g_list_free_full(fill_ctx->records, (GDestroyNotify)vb_pass_record_free);
     g_free(fill_ctx);
     fill_ctx = NULL;
@@ -200,6 +212,81 @@ reply_query_usernames(Client *c, int promise_id, GList *usernames)
     ext_proxy_eval_script_in_page(c, js);
     g_free(js);
     g_string_free(arr, TRUE);
+}
+
+/* ---------- fill picker widgets (fzf-style) --------------------------- */
+
+static void
+fill_row_setup(GtkListItemFactory *f, GtkListItem *item, gpointer u)
+{
+    (void)f; (void)u;
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_list_item_set_child(item, label);
+}
+
+static void
+fill_row_bind(GtkListItemFactory *f, GtkListItem *item, gpointer u)
+{
+    (void)f; (void)u;
+    GtkStringObject *so = gtk_list_item_get_item(item);
+    GtkWidget *label = gtk_list_item_get_child(item);
+    gtk_label_set_text(GTK_LABEL(label), gtk_string_object_get_string(so));
+}
+
+/* Case-insensitive substring match. Empty needle = match everything. */
+static gboolean
+fill_filter_match(gpointer item, gpointer user_data)
+{
+    FillCtx *ctx = user_data;
+    if (!ctx || !ctx->needle || ctx->needle->len == 0) return TRUE;
+    const char *s = gtk_string_object_get_string(GTK_STRING_OBJECT(item));
+    if (!s) return FALSE;
+    char *hay_lc  = g_ascii_strdown(s, -1);
+    char *need_lc = g_ascii_strdown(ctx->needle->str, -1);
+    gboolean hit  = strstr(hay_lc, need_lc) != NULL;
+    g_free(hay_lc);
+    g_free(need_lc);
+    return hit;
+}
+
+/* Build picker widgets from fill_ctx->records and pack into the popover
+ * completion slot. Prereq: fill_ctx->records populated. */
+static void
+fill_picker_build_widgets(void)
+{
+    FillCtx *ctx = fill_ctx;
+
+    ctx->needle = g_string_new("");
+    ctx->store  = gtk_string_list_new(NULL);
+    for (GList *l = ctx->records; l; l = l->next) {
+        VbPassRecord *r = l->data;
+        gtk_string_list_append(ctx->store,
+            r->username && *r->username ? r->username : "(no-user)");
+    }
+
+    ctx->filter = gtk_custom_filter_new(fill_filter_match, ctx, NULL);
+    ctx->filter_model = gtk_filter_list_model_new(
+        G_LIST_MODEL(ctx->store), GTK_FILTER(ctx->filter));
+
+    ctx->selection = gtk_single_selection_new(G_LIST_MODEL(ctx->filter_model));
+    gtk_single_selection_set_autoselect(ctx->selection, TRUE);
+    gtk_single_selection_set_can_unselect(ctx->selection, FALSE);
+
+    GtkListItemFactory *factory = gtk_signal_list_item_factory_new();
+    g_signal_connect(factory, "setup", G_CALLBACK(fill_row_setup), NULL);
+    g_signal_connect(factory, "bind",  G_CALLBACK(fill_row_bind),  NULL);
+
+    ctx->listview = gtk_list_view_new(GTK_SELECTION_MODEL(ctx->selection), factory);
+    /* Reuse completion CSS name so palette theming applies. */
+    gtk_widget_set_name(ctx->listview, "completion");
+
+    ctx->scrolled = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(ctx->scrolled), ctx->listview);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(ctx->scrolled), 240);
+
+    GtkWidget *slot = vb_floating_get_completion_slot();
+    if (slot) gtk_box_append(GTK_BOX(slot), ctx->scrolled);
 }
 
 /* ---------- save prompt mode ('P') ----------------------------------- */
@@ -433,7 +520,7 @@ vb_pass_ui_init(void)
     vb_mode_add('P', pass_prompt_enter, pass_prompt_leave,
                 pass_prompt_keypress, NULL);
     vb_mode_add('F', fill_picker_enter, fill_picker_leave,
-                fill_picker_keypress, NULL);
+                fill_picker_keypress, fill_picker_input_changed);
 }
 
 void
@@ -546,20 +633,6 @@ on_fill_records(GList *records, gpointer user_data)
         fill_ctx->records = g_list_append(fill_ctx->records,
                                           vb_pass_record_copy(l->data));
 
-    GString *menu = g_string_new("pass-fill: ");
-    int i = 1;
-    for (GList *l = fill_ctx->records; l && i <= 9; l = l->next, i++) {
-        VbPassRecord *r = l->data;
-        g_string_append_printf(menu, "[%d]%s ", i,
-                               r->username ? r->username : "(no-user)");
-    }
-    if (g_list_length(fill_ctx->records) > 9)
-        g_string_append(menu, "(+ more, refine with :pass-fill <user>) ");
-    g_string_append(menu, "  1-9 pick, Esc cancel");
-
-    vb_echo_force(c, MSG_NORMAL, FALSE, "%s", menu->str);
-    g_string_free(menu, TRUE);
-
     vb_enter(c, 'F');
 }
 
@@ -608,6 +681,17 @@ fill_picker_enter(Client *c)
 {
     vb_modelabel_update(c, "-- PASS PICK --");
     vb_floating_open("Fill password");
+    if (fill_ctx && fill_ctx->client == c) {
+        fill_picker_build_widgets();
+    }
+    /* Empty the inputbox so the user starts with a clean filter, then
+     * grab focus so typing accumulates as the needle (buffer-changed
+     * fires fill_picker_input_changed). vb_input_set_text hides the
+     * inputbox when input-autohide is on and text is empty, so force
+     * visibility back — an invisible widget cannot take focus. */
+    vb_input_set_text(c, "");
+    gtk_widget_set_visible(GTK_WIDGET(c->input), TRUE);
+    vb_floating_grab_focus();
 }
 
 static void
@@ -627,26 +711,76 @@ fill_picker_keypress(Client *c, int key)
 
     if (key == CTRL('[')) {
         fill_ctx_reset();
+        vb_input_set_text(c, "");
         vb_echo(c, MSG_NORMAL, TRUE, "");
         vb_enter(c, 'n');
         return RESULT_COMPLETE;
     }
 
-    if (key < '1' || key > '9') {
-        return RESULT_COMPLETE;  /* consume, ignore */
+    GListModel *m = fill_ctx->filter_model ? G_LIST_MODEL(fill_ctx->filter_model) : NULL;
+    guint n = m ? g_list_model_get_n_items(m) : 0;
+
+    if (key == KEY_UP || key == KEY_DOWN) {
+        if (n == 0) return RESULT_COMPLETE;
+        guint pos = gtk_single_selection_get_selected(fill_ctx->selection);
+        if (pos == GTK_INVALID_LIST_POSITION) pos = 0;
+        else if (key == KEY_UP)   pos = (pos == 0) ? n - 1 : pos - 1;
+        else                      pos = (pos + 1) % n;
+        gtk_single_selection_set_selected(fill_ctx->selection, pos);
+        gtk_list_view_scroll_to(GTK_LIST_VIEW(fill_ctx->listview),
+                                pos, GTK_LIST_SCROLL_NONE, NULL);
+        return RESULT_COMPLETE;
     }
-    int idx = key - '1';
-    GList *l = g_list_nth(fill_ctx->records, idx);
-    if (!l) {
-        vb_echo(c, MSG_ERROR, TRUE, "pass-fill: no such entry");
+
+    if (key == KEY_CR) {
+        if (n == 0) {
+            vb_echo(c, MSG_ERROR, TRUE, "pass-fill: no match");
+            fill_ctx_reset();
+            vb_input_set_text(c, "");
+            vb_enter(c, 'n');
+            return RESULT_COMPLETE;
+        }
+        guint pos = gtk_single_selection_get_selected(fill_ctx->selection);
+        if (pos == GTK_INVALID_LIST_POSITION) pos = 0;
+        GtkStringObject *so = g_list_model_get_item(m, pos);
+        const char *pick    = so ? gtk_string_object_get_string(so) : NULL;
+        /* Map the displayed username string back to its record. Duplicates
+         * are impossible — pass hierarchy uses filename-as-username so
+         * each row is unique per host. */
+        VbPassRecord *hit = NULL;
+        for (GList *l = fill_ctx->records; l && pick; l = l->next) {
+            VbPassRecord *r = l->data;
+            const char *u = r->username && *r->username ? r->username : "(no-user)";
+            if (strcmp(u, pick) == 0) { hit = r; break; }
+        }
+        if (hit) {
+            fill_from_record(c, hit);
+            vb_echo(c, MSG_NORMAL, TRUE, "Filled from pass.");
+        } else {
+            vb_echo(c, MSG_ERROR, TRUE, "pass-fill: selection lookup failed");
+        }
+        g_clear_object(&so);
+        fill_ctx_reset();
+        vb_input_set_text(c, "");
         vb_enter(c, 'n');
         return RESULT_COMPLETE;
     }
-    fill_from_record(c, l->data);
-    vb_echo(c, MSG_NORMAL, TRUE, "Filled from pass.");
-    fill_ctx_reset();
-    vb_enter(c, 'n');
-    return RESULT_COMPLETE;
+
+    return RESULT_COMPLETE;  /* consume everything else — printable chars
+                              * come in via IM through the buffer-changed path */
+}
+
+static void
+fill_picker_input_changed(Client *c, const char *text)
+{
+    if (!fill_ctx || fill_ctx->client != c || !fill_ctx->filter) return;
+    g_string_assign(fill_ctx->needle, text ? text : "");
+    gtk_filter_changed(GTK_FILTER(fill_ctx->filter), GTK_FILTER_CHANGE_DIFFERENT);
+    /* Re-anchor selection on the first surviving row so Enter picks it. */
+    if (gtk_single_selection_get_selected(fill_ctx->selection) == GTK_INVALID_LIST_POSITION
+        && g_list_model_get_n_items(G_LIST_MODEL(fill_ctx->filter_model)) > 0) {
+        gtk_single_selection_set_selected(fill_ctx->selection, 0);
+    }
 }
 
 /* :pass-forget — no arg = forget for current host all users; else host or host/user. */

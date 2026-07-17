@@ -1140,13 +1140,17 @@ static gboolean on_input_key_pressed(GtkEventControllerKey *controller, guint ke
         return FALSE;
     }
 
-    /* Handle special keys when in ex mode and input has focus */
-    if (c->mode->id == 'c' && gtk_widget_is_focus(c->input)) {
+    /* Handle special keys when in ex mode OR pass-fill picker AND input has
+     * focus. Both modes accumulate typed text in the buffer via IM, so we
+     * intercept the non-printable navigation keys (which GtkTextView would
+     * otherwise consume for its own cursor/newline handling) and route them
+     * to the mode's keypress callback. */
+    if ((c->mode->id == 'c' || c->mode->id == 'F') && gtk_widget_is_focus(c->input)) {
         /* Handle TAB and Shift+TAB for completion */
         if (keyval == GDK_KEY_Tab || keyval == GDK_KEY_KP_Tab || keyval == GDK_KEY_ISO_Left_Tab) {
             int key = (state & GDK_SHIFT_MASK) ? KEY_SHIFT_TAB : KEY_TAB;
             /* Process through ex_keypress handler */
-            if (ex_keypress(c, key) == RESULT_COMPLETE) {
+            if (c->mode->keypress(c, key) == RESULT_COMPLETE) {
                 /* Key was handled, prevent default behavior */
                 return TRUE;
             }
@@ -1154,7 +1158,7 @@ static gboolean on_input_key_pressed(GtkEventControllerKey *controller, guint ke
         /* Handle Enter/Return to execute command */
         else if (keyval == GDK_KEY_Return || keyval == GDK_KEY_KP_Enter) {
             /* Process through ex_keypress handler */
-            if (ex_keypress(c, KEY_CR) == RESULT_COMPLETE) {
+            if (c->mode->keypress(c, KEY_CR) == RESULT_COMPLETE) {
                 /* Key was handled, prevent default behavior (inserting newline) */
                 return TRUE;
             }
@@ -1162,14 +1166,14 @@ static gboolean on_input_key_pressed(GtkEventControllerKey *controller, guint ke
         /* Handle Up/Down arrows for history navigation */
         else if (keyval == GDK_KEY_Up || keyval == GDK_KEY_KP_Up) {
             /* Process through ex_keypress handler */
-            if (ex_keypress(c, KEY_UP) == RESULT_COMPLETE) {
+            if (c->mode->keypress(c, KEY_UP) == RESULT_COMPLETE) {
                 /* Key was handled, prevent default behavior */
                 return TRUE;
             }
         }
         else if (keyval == GDK_KEY_Down || keyval == GDK_KEY_KP_Down) {
             /* Process through ex_keypress handler */
-            if (ex_keypress(c, KEY_DOWN) == RESULT_COMPLETE) {
+            if (c->mode->keypress(c, KEY_DOWN) == RESULT_COMPLETE) {
                 /* Key was handled, prevent default behavior */
                 return TRUE;
             }
@@ -1181,7 +1185,7 @@ static gboolean on_input_key_pressed(GtkEventControllerKey *controller, guint ke
             guint32 uc = gdk_keyval_to_unicode(keyval);
             if (uc >= 0x20 && uc < 0x80) {
                 /* Process printable ASCII through ex_keypress */
-                if (ex_keypress(c, (int)uc) == RESULT_COMPLETE) {
+                if (c->mode->keypress(c, (int)uc) == RESULT_COMPLETE) {
                     return TRUE;
                 }
             }
