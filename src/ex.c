@@ -33,6 +33,7 @@
 #include "completion.h"
 #include "config.h"
 #include "ex.h"
+#include "floating-cmdline.h"
 #include "pass-ui.h"
 #include "handler.h"
 #include "hints.h"
@@ -267,6 +268,19 @@ void ex_enter(Client *c)
 #if 0
     dom_clear_focus(c->webview);
 #endif
+    /* User-facing text prompts get the floating popover; hint follow-up
+     * prompts (";t", ";o", "g;X") stay in the bottom inputbox. */
+    const char *title = NULL;
+    switch (c->state.prompt[0]) {
+    case ':': title = "Cmdline";           break;
+    case '/': title = "Search";            break;
+    case '?': title = "Search (backward)"; break;
+    default:  break;
+    }
+    if (title) {
+        vb_floating_open(title);
+        vb_floating_grab_focus();
+    }
 }
 
 /**
@@ -279,6 +293,7 @@ void ex_leave(Client *c)
     if (c->config.incsearch) {
         command_search(c, &((Arg){0, NULL}), FALSE);
     }
+    vb_floating_close();
 }
 
 /**
