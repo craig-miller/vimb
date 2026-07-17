@@ -313,7 +313,7 @@ pass_prompt_enter(Client *c)
 static void
 pass_prompt_leave(Client *c)
 {
-    (void)c;
+    vb_modelabel_update(c, "");
     vb_floating_close();
     /* Cleanup happens in keypress on user decision. */
 }
@@ -697,7 +697,7 @@ fill_picker_enter(Client *c)
 static void
 fill_picker_leave(Client *c)
 {
-    (void)c;
+    vb_modelabel_update(c, "");
     vb_floating_close();
 }
 
