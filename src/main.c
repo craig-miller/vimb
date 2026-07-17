@@ -97,7 +97,6 @@ static void decide_new_window_action(Client *c, WebKitPolicyDecision *dec);
 static void decide_response(Client *c, WebKitPolicyDecision *dec);
 static void on_webview_load_changed(WebKitWebView *webview,
         WebKitLoadEvent event, Client *c);
-static void vimb_webview_reveal(WebKitWebView *view);
 static void on_webview_mouse_target_changed(WebKitWebView *webview,
         WebKitHitTestResult *result, guint modifiers, Client *c);
 static void on_webview_notify_estimated_load_progress(WebKitWebView *webview,
@@ -1034,7 +1033,7 @@ static GtkWidget *create_window(Client *c)
         gdk_rgba_parse (&color, GUI_WINDOW_BACKGROUND_COLOR);
 
         GtkCssProvider *provider = gtk_css_provider_new();
-        gchar *css = g_strdup_printf("window { background-color: %s; } .vimb-webview { opacity: 0; transition: opacity 300ms ease-out; } .vimb-webview.active { opacity: 1; }", GUI_WINDOW_BACKGROUND_COLOR);
+        gchar *css = g_strdup_printf("window { background-color: %s; }", GUI_WINDOW_BACKGROUND_COLOR);
         /* GTK4: Use gtk_css_provider_load_from_string instead of deprecated load_from_data */
         gtk_css_provider_load_from_string(provider, css);
         /* GTK4: Add CSS provider to display */
@@ -1849,8 +1848,6 @@ static void on_webview_load_changed(WebKitWebView *webview,
             break;
 
         case WEBKIT_LOAD_FINISHED:
-            /* Fade the WebView in once the page has fully painted. */
-            vimb_webview_reveal(webview);
 #ifdef FEATURE_AUTOCMD
             autocmd_run(c, AU_LOAD_FINISHED, raw_uri, NULL);
 #endif
@@ -2426,7 +2423,7 @@ static void create_main_window(void)
 #ifdef GUI_WINDOW_BACKGROUND_COLOR
     {
         GtkCssProvider *provider = gtk_css_provider_new();
-        gchar *css = g_strdup_printf("window { background-color: %s; } .vimb-webview { opacity: 0; transition: opacity 300ms ease-out; } .vimb-webview.active { opacity: 1; }", GUI_WINDOW_BACKGROUND_COLOR);
+        gchar *css = g_strdup_printf("window { background-color: %s; }", GUI_WINDOW_BACKGROUND_COLOR);
         gtk_css_provider_load_from_string(provider, css);
         GdkDisplay *display = gtk_widget_get_display(vb.main_window);
         gtk_style_context_add_provider_for_display(display,
@@ -2990,17 +2987,6 @@ cleanup:
     g_string_free(style_sheet, TRUE);
 }
 
-/* Idle callback that flips a freshly-created WebView from opacity:0
- * to opacity:1 by adding the .active class. Combined with the 250ms
- * CSS transition on .vimb-webview, this fades the WebView in on
- * creation and masks the pre-page-load flash. */
-static void vimb_webview_reveal(WebKitWebView *view)
-{
-    if (view && GTK_IS_WIDGET(view)) {
-        gtk_widget_add_css_class(GTK_WIDGET(view), "active");
-    }
-}
-
 /**
  * Factory to create a new webview.
  *
@@ -3035,14 +3021,10 @@ static WebKitWebView *webview_new(Client *c, WebKitWebView *webview)
                     NULL));
     }
 
-    /* DIAGNOSTIC: red WebView bg to verify set_background_color effect. */
-    webkit_web_view_set_background_color(new, &(GdkRGBA){0, 0, 0, 0.8});
-
-    /* Fade-in setup: tag with .vimb-webview (opacity:0 via CSS).
-     * The .active class that flips opacity to 1 is added later in
-     * on_webview_load_changed at WEBKIT_LOAD_FINISHED, so the fade
-     * animates over the fully-painted page rather than empty canvas. */
-    gtk_widget_add_css_class(GTK_WIDGET(new), "vimb-webview");
+    /* Paint the WebView bg opaque black so the cold-launch flash reads
+     * as solid black instead of WebKit's default opaque white. Any page
+     * with its own bg overrides this on first paint. */
+    webkit_web_view_set_background_color(new, &(GdkRGBA){0, 0, 0, 1});
 
     g_object_connect(
         G_OBJECT(new),
