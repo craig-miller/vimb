@@ -360,12 +360,17 @@ static void setup_listitem(GtkListItemFactory *factory, GtkListItem *list_item,
     GtkWidget *label_second;
 #endif
 
-    box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 24);
 
     label_first = gtk_label_new(NULL);
     gtk_label_set_xalign(GTK_LABEL(label_first), 0.0);
     gtk_label_set_ellipsize(GTK_LABEL(label_first), PANGO_ELLIPSIZE_MIDDLE);
-    gtk_widget_set_hexpand(label_first, TRUE);
+    /* Reserve a fixed URL-column width so short URLs (e.g. kagi.com) do
+     * not collapse to their natural width and let the title butt right
+     * against them. Ellipsize handles URLs longer than this. */
+    gtk_label_set_width_chars(GTK_LABEL(label_first), 50);
+    gtk_label_set_max_width_chars(GTK_LABEL(label_first), 50);
+    gtk_widget_set_hexpand(label_first, FALSE);
     gtk_box_append(GTK_BOX(box), label_first);
 
 #ifdef FEATURE_TITLE_IN_COMPLETION
