@@ -99,8 +99,8 @@
  * these settings win same-selector cascades. !important preserved on the
  * link/focus rules since page CSS often specifies backgrounds. */
 #define SETTING_HINT_LABEL_CSS                "background-color:#313244;border:1px solid #45475a;color:#cdd6f4;opacity:0.95;"
-#define SETTING_HINT_LINK_CSS                 "background-color:#a6e3a1 !important;color:#1e1e2e !important;"
-#define SETTING_HINT_FOCUS_CSS                "background-color:#89b4fa !important;color:#1e1e2e !important;"
+#define SETTING_HINT_LINK_CSS                 "color:#a6e3a1 !important;"
+#define SETTING_HINT_FOCUS_CSS                "color:#89b4fa !important;"
 
 /* System-wide default paths — consulted only when the corresponding
  * per-user file at ~/.config/vimb/ is ABSENT. When the user file exists
