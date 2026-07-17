@@ -18,6 +18,7 @@
  */
 
 #include "completion.h"
+#include "floating-cmdline.h"
 #include "config.h"
 #include "main.h"
 
@@ -228,7 +229,15 @@ gboolean completion_create(Client *c, GListStore *store,
     /* The provider is already added to display in vimb_setup(), widget uses CSS selector */
     gtk_widget_set_name(GTK_WIDGET(comp->listview), "completion");
 
-    gtk_box_append(GTK_BOX(gtk_widget_get_parent(GTK_WIDGET(c->statusbar.box))), comp->win);
+    /* Pack into the floating popover's completion slot when the popover is
+     * open (always true when completion fires from ex mode); fall back to
+     * the original bottom-of-window location otherwise. */
+    GtkWidget *slot = vb_floating_get_completion_slot();
+    if (slot) {
+        gtk_box_append(GTK_BOX(slot), comp->win);
+    } else {
+        gtk_box_append(GTK_BOX(gtk_widget_get_parent(GTK_WIDGET(c->statusbar.box))), comp->win);
+    }
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(comp->win), comp->listview);
 
     /* Connect selection changed signal */
