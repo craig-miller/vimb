@@ -3024,7 +3024,7 @@ static WebKitWebView *webview_new(Client *c, WebKitWebView *webview)
     /* Paint the WebView bg opaque black so the cold-launch flash reads
      * as solid black instead of WebKit's default opaque white. Any page
      * with its own bg overrides this on first paint. */
-    webkit_web_view_set_background_color(new, &(GdkRGBA){0, 0, 0, 1});
+    webkit_web_view_set_background_color(new, &(GdkRGBA){20.0f/255.0f, 20.0f/255.0f, 20.0f/255.0f, 1});
 
     g_object_connect(
         G_OBJECT(new),
