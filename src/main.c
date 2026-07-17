@@ -55,6 +55,7 @@
 #include "autocmd.h"
 #include "file-storage.h"
 #include "context-menu.h"
+#include "floating-cmdline.h"
 #include "webextension/ext-main.h"
 
 static void client_destroy(Client *c);
@@ -2445,7 +2446,7 @@ static void create_main_window(void)
     gtk_notebook_set_show_tabs(GTK_NOTEBOOK(vb.notebook), FALSE);
 #endif
     gtk_widget_set_vexpand(vb.notebook, TRUE);
-    gtk_box_append(GTK_BOX(main_box), vb.notebook);
+    gtk_box_append(GTK_BOX(main_box), vb_floating_init(vb.notebook));
 
     /* Connect notebook signals */
     g_signal_connect(vb.notebook, "switch-page", G_CALLBACK(on_notebook_switch_page), NULL);
@@ -2456,6 +2457,7 @@ static void create_main_window(void)
     vb.input_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(vb.inputbox));
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(vb.inputbox), GTK_WRAP_WORD_CHAR);
     gtk_box_append(GTK_BOX(main_box), vb.inputbox);
+    vb_floating_register_inputbox(vb.inputbox, main_box);
 
     /* Add key controller to main window for keyboard input */
     GtkEventController *key_controller = gtk_event_controller_key_new();
@@ -2887,7 +2889,7 @@ void vb_gui_style_update(Client *c, const char *setting_name_new, const char *se
         {"input-css",                   " #input{%s}"},
         {"input-error-css",             " #input.error{%s}"},
         {"status-css",                  " #statusbar{%s}"},
-        {"status-ssl-css",              " #statusbar.secure{%s}"},
+        {"status-ssl-css",              " #statusbar.secure, .vimb-floating{%s}"},
         {"status-ssl-invalid-css",      " #statusbar.unsecure{%s}"},
         /* Mode overlays target the statusbar only. Applying them to #input
          * as well interacts with typing (font-weight changes shift caret
@@ -2932,6 +2934,22 @@ void vb_gui_style_update(Client *c, const char *setting_name_new, const char *se
             }
         }
     }
+
+    /* Floating cmdline popover — structural styling only. Bg + fg colors
+     * come from status-ssl-css (selector extended to also match .vimb-floating),
+     * so palette changes via Noctalia propagate on SIGUSR2 reload.
+     * currentColor makes the border track the fg color set by status-ssl-css. */
+    g_string_append(style_sheet,
+        " .vimb-floating {"
+        "  border: 1px solid currentColor;"
+        "  border-radius: 8px;"
+        "  padding: 8px 12px;"
+        "  min-width: 600px;"
+        "}"
+        " .vimb-floating-title {"
+        "  font-weight: bold;"
+        "  padding: 0 4px 4px 4px;"
+        "}");
 
     /* Feed style sheet document to gtk */
     /* GTK4: Use gtk_css_provider_load_from_string instead of deprecated load_from_data */
