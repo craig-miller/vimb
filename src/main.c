@@ -3021,6 +3021,9 @@ static WebKitWebView *webview_new(Client *c, WebKitWebView *webview)
                     NULL));
     }
 
+    /* DIAGNOSTIC: red WebView bg to verify set_background_color effect. */
+    webkit_web_view_set_background_color(new, &(GdkRGBA){0, 0, 0, 0.8});
+
     g_object_connect(
         G_OBJECT(new),
         "signal::close", G_CALLBACK(on_webview_close), c,
