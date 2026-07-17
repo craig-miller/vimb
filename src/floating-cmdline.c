@@ -93,6 +93,18 @@ vb_floating_open(const char *title)
      * the popover visible first keeps the inputbox mapped throughout. */
     gtk_widget_set_visible(state.popover_box, TRUE);
 
+    /* Size the popover to ~2/3 of the window width so completion rows
+     * have room to breathe (default GTK sizing collapses to the entry's
+     * ideal width, which is narrow). Falls back to no-op if the window
+     * hasn't been allocated a size yet. */
+    GtkRoot *root = gtk_widget_get_root(state.overlay);
+    if (root && GTK_IS_WINDOW(root)) {
+        int w = gtk_widget_get_width(GTK_WIDGET(root));
+        if (w > 0) {
+            gtk_widget_set_size_request(state.popover_box, (w * 2) / 3, -1);
+        }
+    }
+
     /* Reparent: home -> entry_slot. Refcount dance keeps the widget alive
      * across the transfer (gtk_box_remove drops the parent's ref; we hold
      * an extra ref until the new parent takes one). */

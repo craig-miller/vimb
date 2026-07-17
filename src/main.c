@@ -2944,7 +2944,6 @@ void vb_gui_style_update(Client *c, const char *setting_name_new, const char *se
         "  border: 1px solid currentColor;"
         "  border-radius: 8px;"
         "  padding: 8px 12px;"
-        "  min-width: 600px;"
         "}"
         " .vimb-floating-title {"
         "  font-weight: bold;"
