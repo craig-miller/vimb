@@ -30,6 +30,7 @@
 #include "ascii.h"
 #include "pass-ui.h"
 #include "pass-manager.h"
+#include "floating-cmdline.h"
 #include "ext-proxy.h"
 
 extern struct Vimb vb;
@@ -207,6 +208,7 @@ static void
 pass_prompt_enter(Client *c)
 {
     vb_modelabel_update(c, "-- PASS --");
+    vb_floating_open("Save password?");
     PendingSave *s = g_hash_table_lookup(pending, c);
     if (!s) {
         vb_enter(c, 'n');
@@ -224,7 +226,9 @@ pass_prompt_enter(Client *c)
 static void
 pass_prompt_leave(Client *c)
 {
-    /* Nothing — cleanup happens in keypress on user decision. */
+    (void)c;
+    vb_floating_close();
+    /* Cleanup happens in keypress on user decision. */
 }
 
 static VbResult
@@ -603,12 +607,14 @@ static void
 fill_picker_enter(Client *c)
 {
     vb_modelabel_update(c, "-- PASS PICK --");
+    vb_floating_open("Fill password");
 }
 
 static void
 fill_picker_leave(Client *c)
 {
-    /* nothing */
+    (void)c;
+    vb_floating_close();
 }
 
 static VbResult
