@@ -213,7 +213,7 @@ static gboolean reload_config_cb(gpointer user_data)
 gboolean vb_download_set_destination(Client *c, WebKitDownload *download,
     char *suggested_filename, const char *path)
 {
-    char *download_path, *dir, *file, *uri, *basename = NULL;
+    char *download_path, *dir, *file, *basename = NULL;
 
     download_path = GET_CHAR(c, "download-path");
 
@@ -291,15 +291,14 @@ gboolean vb_download_set_destination(Client *c, WebKitDownload *download,
         g_string_free(tmp, TRUE);
     }
 
-    /* Build URI from filepath. */
-    uri = g_filename_to_uri(file, NULL, NULL);
-    g_free(file);
-
     /* configure download */
-    g_assert(uri);
+    /* WebKitGTK 6.0: webkit_download_set_destination() takes a filesystem
+     * path, not a file:// URI (older 2.x API). g_path_is_absolute() asserts
+     * inside WebKit and the download hangs if we pass a URI. */
+    g_assert(file);
     webkit_download_set_allow_overwrite(download, FALSE);
-    webkit_download_set_destination(download, uri);
-    g_free(uri);
+    webkit_download_set_destination(download, file);
+    g_free(file);
 
     return TRUE;
 }
@@ -1497,7 +1496,7 @@ static void spawn_download_command(Client *c, WebKitURIResponse *response)
 static void on_webdownload_failed(WebKitDownload *download,
                GError *error, Client *c)
 {
-    gchar *destination = NULL, *filename = NULL, *basename = NULL;
+    gchar *destination = NULL, *basename = NULL;
 
     g_assert(download);
     g_assert(error);
@@ -1508,20 +1507,16 @@ static void on_webdownload_failed(WebKitDownload *download,
     autocmd_run(c, AU_DOWNLOAD_FAILED, uri, NULL);
 #endif
 
-    /* get the failed download's destination uri */
+    /* get the failed download's destination path */
+    /* WebKitGTK 6.0: the "destination" property is now a plain filesystem
+     * path (not a file:// URI as in the 2.x API). Use it directly. */
     g_object_get(download, "destination", &destination, NULL);
     g_assert(destination);
 
-    /* filename from uri */
+    /* basename from path */
     if (destination) {
-        filename = g_filename_from_uri(destination, NULL, NULL);
+        basename = g_path_get_basename(destination);
         g_free(destination);
-    }
-
-    /* basename from filename */
-    if (filename) {
-        basename = g_path_get_basename(filename);
-        g_free(filename);
     }
 
     /* report the error to the user */
@@ -1538,7 +1533,7 @@ static void on_webdownload_failed(WebKitDownload *download,
  */
 static void on_webdownload_finished(WebKitDownload *download, Client *c)
 {
-    gchar *destination = NULL, *filename = NULL, *basename = NULL;
+    gchar *destination = NULL, *basename = NULL;
 
     g_assert(download);
     g_assert(c);
@@ -1553,33 +1548,28 @@ static void on_webdownload_finished(WebKitDownload *download, Client *c)
     /* to reflect the correct download count */
     vb_statusbar_update(c);
 
-    /* get the finished downloads destination uri */
+    /* get the finished download's destination path */
+    /* WebKitGTK 6.0: the "destination" property is now a plain filesystem
+     * path (not a file:// URI as in the 2.x API). Use it directly. */
     g_object_get(download, "destination", &destination, NULL);
     g_assert(destination);
 
-    /* filename from uri */
     if (destination) {
-        filename = g_filename_from_uri(destination, NULL, NULL);
-        g_free(destination);
-    }
-
-    if (filename) {
-        /* basename from filename */
-        basename = g_path_get_basename(filename);
+        basename = g_path_get_basename(destination);
 
         if (basename) {
             /* Only report to the user if the downloaded file exists, so the
              * download was successful. Otherwise, this is a failed download
              * finished signal and it was reported to the user in
              * on_webdownload_failed() already. */
-            if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+            if (g_file_test(destination, G_FILE_TEST_EXISTS)) {
                 vb_echo(c, MSG_NORMAL, FALSE, "Download of %s finished", basename);
             }
 
             g_free(basename);
         }
 
-        g_free(filename);
+        g_free(destination);
     }
 }
 
