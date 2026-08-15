@@ -18,3 +18,12 @@ set dark-mode=on
 # regenerating the GTK CSS provider live. Silent no-op if the file
 # doesn't exist yet (before noctalia has rendered it once).
 source ~/.config/vimb/noctalia-theme
+
+# Route sioyek:// URLs (Zettelkasten card source-links emitted by
+# ~/.local/bin/zettel-export and nvim's picker.lua) through the
+# sioyek-proto proxy in app-text/sioyek-scheme. Proxy parses
+# ?page=N&yloc=Y and shells to `sioyek --page N+1` + a delayed
+# goto_highlight IPC for precise-Y centering. No-op if
+# app-text/sioyek-scheme isn't installed (handler fires a missing
+# command silently).
+handler-add sioyek=/usr/bin/sioyek-proto %s
