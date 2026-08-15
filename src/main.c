@@ -1490,6 +1490,47 @@ static void spawn_download_command(Client *c, WebKitURIResponse *response)
 }
 
 /**
+ * Look up the default XDG handler for `mime` and launch it on `path`.
+ * Handler lookup is the same source as `xdg-mime query default <mime>`
+ * (reads ~/.config/mimeapps.list + system defaults through GIO).
+ * Returns TRUE if a handler was found and successfully launched.
+ */
+static gboolean open_with_default_handler(const char *path, const char *mime)
+{
+    GAppInfo *handler;
+    GList    *files = NULL;
+    GFile    *file;
+    GError   *error = NULL;
+    gboolean  launched;
+
+    if (!path || !mime) {
+        return FALSE;
+    }
+
+    handler = g_app_info_get_default_for_type(mime, FALSE);
+    if (!handler) {
+        return FALSE;
+    }
+
+    file  = g_file_new_for_path(path);
+    files = g_list_append(files, file);
+
+    launched = g_app_info_launch(handler, files, NULL, &error);
+    if (!launched) {
+        g_warning("download-open: failed to launch %s for %s: %s",
+                g_app_info_get_name(handler), path,
+                error ? error->message : "unknown error");
+        g_clear_error(&error);
+    }
+
+    g_list_free(files);
+    g_object_unref(file);
+    g_object_unref(handler);
+
+    return launched;
+}
+
+/**
  * Callback for the webkit download failed signal.
  * This signal is emitted when an error occurs during the download operation.
  */
@@ -1564,6 +1605,28 @@ static void on_webdownload_finished(WebKitDownload *download, Client *c)
              * on_webdownload_failed() already. */
             if (g_file_test(destination, G_FILE_TEST_EXISTS)) {
                 vb_echo(c, MSG_NORMAL, FALSE, "Download of %s finished", basename);
+
+                /* Auto-open with the default XDG handler when the MIME type
+                 * is one WebKit can't render itself. A renderable MIME
+                 * reaching this path means the download was user-initiated
+                 * (save-page or hint-save on something WebKit was already
+                 * rendering) — skip the auto-open in that case; the user
+                 * already had it open in the browser. */
+                if (GET_BOOL(c, "download-open")) {
+                    WebKitURIResponse *res;
+                    WebKitWebView     *view;
+                    const char        *mime;
+
+                    res  = webkit_download_get_response(download);
+                    view = webkit_download_get_web_view(download);
+                    mime = res ? webkit_uri_response_get_mime_type(res) : NULL;
+
+                    if (mime && view
+                        && !webkit_web_view_can_show_mime_type(view, mime))
+                    {
+                        open_with_default_handler(destination, mime);
+                    }
+                }
             }
 
             g_free(basename);
@@ -1757,13 +1820,38 @@ static void decide_response(Client *c, WebKitPolicyDecision *dec)
 {
     guint status;
     WebKitURIResponse *res;
+    const char *uri;
 
     res    = webkit_response_policy_decision_get_response(WEBKIT_RESPONSE_POLICY_DECISION(dec));
     status = webkit_uri_response_get_status_code(res);
 
     if (webkit_response_policy_decision_is_mime_type_supported(WEBKIT_RESPONSE_POLICY_DECISION(dec))) {
         webkit_policy_decision_use(dec);
-    } else if (SOUP_STATUS_IS_SUCCESSFUL(status) || status == SOUP_STATUS_NONE) {
+        return;
+    }
+
+    /* Non-renderable MIME. Short-circuit for file:// URIs so we launch the
+     * XDG default handler on the original path instead of copying the file
+     * to the download dir and then opening the copy — that copy pollutes
+     * ~/Downloads and loses the sibling context the original had (e.g.
+     * PDFs whose links reference neighboring files in the same folder). */
+    uri = webkit_uri_response_get_uri(res);
+    if (GET_BOOL(c, "download-open") && uri && g_str_has_prefix(uri, "file://")) {
+        char *path = g_filename_from_uri(uri, NULL, NULL);
+        const char *mime = webkit_uri_response_get_mime_type(res);
+
+        if (path && mime && open_with_default_handler(path, mime)) {
+            webkit_policy_decision_ignore(dec);
+            g_free(path);
+            return;
+        }
+        g_free(path);
+        /* Fall through to the normal download path if no handler is
+         * registered or the launch failed — better to save the file than
+         * silently swallow the navigation. */
+    }
+
+    if (SOUP_STATUS_IS_SUCCESSFUL(status) || status == SOUP_STATUS_NONE) {
         webkit_policy_decision_download(dec);
     } else {
         webkit_policy_decision_ignore(dec);

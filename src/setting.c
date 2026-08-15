@@ -183,6 +183,7 @@ void setting_init(Client *c)
     setting_add(c, "download-path", TYPE_CHAR, &SETTING_DOWNLOAD_PATH, NULL, 0, NULL);
     setting_add(c, "download-command", TYPE_CHAR, &SETTING_DOWNLOAD_COMMAND, NULL, 0, NULL);
     setting_add(c, "download-use-external", TYPE_BOOLEAN, &off, NULL, 0, NULL);
+    setting_add(c, "download-open", TYPE_BOOLEAN, &on, NULL, 0, NULL);
     setting_add(c, "incsearch", TYPE_BOOLEAN, &on, internal, 0, &c->config.incsearch);
     i = 10;
     /* TODO should be global and not overwritten by a new client */
