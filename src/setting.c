@@ -180,7 +180,16 @@ void setting_init(Client *c)
     setting_add(c, "show-titlebar", TYPE_BOOLEAN, &on, window_decorate, 0, NULL);
     i = 100;
     setting_add(c, "default-zoom", TYPE_INTEGER, &i, default_zoom, 0, NULL);
-    setting_add(c, "download-path", TYPE_CHAR, &SETTING_DOWNLOAD_PATH, NULL, 0, NULL);
+    /* Derive download-path default from XDG_DOWNLOAD_DIR (via GLib, which
+     * reads ~/.config/user-dirs.dirs). Users with a non-default XDG location
+     * (~/dl, /data/downloads, etc.) get it honored out of the box. Falls back
+     * to the hardcoded SETTING_DOWNLOAD_PATH if XDG isn't set. Users can still
+     * override with `set download-path=…` in their vimb config. */
+    {
+        const char *xdg_dl = g_get_user_special_dir(G_USER_DIRECTORY_DOWNLOAD);
+        const char *dl_default = (xdg_dl && *xdg_dl) ? xdg_dl : SETTING_DOWNLOAD_PATH;
+        setting_add(c, "download-path", TYPE_CHAR, (void *)dl_default, NULL, 0, NULL);
+    }
     setting_add(c, "download-command", TYPE_CHAR, &SETTING_DOWNLOAD_COMMAND, NULL, 0, NULL);
     setting_add(c, "download-use-external", TYPE_BOOLEAN, &off, NULL, 0, NULL);
     setting_add(c, "download-open", TYPE_BOOLEAN, &on, NULL, 0, NULL);
