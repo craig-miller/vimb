@@ -1672,16 +1672,29 @@ static WebKitWebView *on_webview_create(WebKitWebView *webview,
         WebKitNavigationAction *navact, Client *c)
 {
     WebKitURIRequest *req;
+    const char *uri;
+
+    req = webkit_navigation_action_get_request(navact);
+    uri = webkit_uri_request_get_uri(req);
+
+    /* If a scheme handler is registered (e.g. sioyek:// via :handler-add),
+     * fire it and stop — this signal fires BEFORE decide_new_window_action
+     * for target="_blank" links (and SVG anchor clicks in embedded viewers
+     * like typst-preview), so without this check every click on a
+     * handler-owned URL spawns a fresh vimb window that then re-delegates
+     * through decide_navigation_action, leaving a blank window behind. */
+    if (handler_handle_uri(c->handler, uri)) {
+        return NULL;
+    }
+
     if (c->config.prevent_newwindow) {
-        req = webkit_navigation_action_get_request(navact);
-        vb_load_uri(c, &(Arg){TARGET_CURRENT, (char*)webkit_uri_request_get_uri(req)});
+        vb_load_uri(c, &(Arg){TARGET_CURRENT, (char*)uri});
 
         return NULL;
     }
 
 #ifdef FEATURE_NO_TABS
-    req = webkit_navigation_action_get_request(navact);
-    spawn_new_instance(webkit_uri_request_get_uri(req));
+    spawn_new_instance(uri);
 
     return NULL;
 #else
@@ -1785,6 +1798,7 @@ static void decide_new_window_action(Client *c, WebKitPolicyDecision *dec)
 {
     WebKitNavigationAction *a;
     WebKitURIRequest *req;
+    const char *uri;
 
     a = webkit_navigation_policy_decision_get_navigation_action(WEBKIT_NAVIGATION_POLICY_DECISION(dec));
 
@@ -1800,11 +1814,21 @@ static void decide_new_window_action(Client *c, WebKitPolicyDecision *dec)
              * without user gesture. */
             if (webkit_navigation_action_is_user_gesture(a)) {
                 req = webkit_navigation_action_get_request(a);
+                uri = webkit_uri_request_get_uri(req);
+
+                /* If a scheme handler is registered (e.g. sioyek:// via
+                 * :handler-add), fire it and stop — spawning a fresh vimb
+                 * instance just to re-delegate through decide_navigation_
+                 * action leaves a blank window behind for every click. */
+                if (handler_handle_uri(c->handler, uri)) {
+                    break;
+                }
+
                 if (c->config.prevent_newwindow) {
                     /* Load the uri into the browser instance. */
-                    vb_load_uri(c, &(Arg){TARGET_CURRENT, (char*)webkit_uri_request_get_uri(req)});
+                    vb_load_uri(c, &(Arg){TARGET_CURRENT, (char*)uri});
                 } else {
-                    spawn_new_instance(webkit_uri_request_get_uri(req));
+                    spawn_new_instance(uri);
                 }
             }
             break;
