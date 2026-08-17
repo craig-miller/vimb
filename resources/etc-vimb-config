@@ -27,3 +27,11 @@ source ~/.config/vimb/noctalia-theme
 # app-text/sioyek-scheme isn't installed (handler fires a missing
 # command silently).
 handler-add sioyek=/usr/bin/sioyek-proto %s
+
+# Auto-passthrough for typst-preview pages. The preview HTML has its own
+# JS keybinds (t = dark-mode toggle, arrows/PgUp/PgDn = scroll, g = jump,
+# ? = help) that vimb otherwise swallows. The `?zentoo-typst-preview=1`
+# marker is added to the preview URL by typst-preview.nvim's open_cmd, so
+# this matches only real preview windows — not other localhost pages you
+# might open manually.
+autocmd LoadFinished *zentoo-typst-preview=1* normal <C-Z>
