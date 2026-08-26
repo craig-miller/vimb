@@ -62,6 +62,9 @@ A stack of single-purpose, rebase-friendly commits on top of upstream:
 
 **Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
 
+
+14. **Typst-preview auto-passthrough.** `chomosuke/typst-preview.nvim` (writing chapter of the zentoo install-guide) opens its live preview URL in vimb with a `?zentoo-typst-preview=1` query-param baked into its `open_cmd`. A single-line `autocmd LoadFinished *zentoo-typst-preview=1* normal <C-Z>` in the shipped `resources/etc-vimb-config` catches those loads and auto-engages passthrough mode, so the preview page's in-page JS keybinds (`t` dark-mode toggle, arrows / PgUp / PgDn scroll, `g` jump, `?` help) pass straight through instead of being intercepted by vimb's normal-mode dispatch. The marker is URL-scoped so only real preview pages match — other localhost pages you open by hand still get normal vimb behavior.
+
 ## Installing
 
 ### Gentoo Linux
