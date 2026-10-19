@@ -1,6 +1,6 @@
-# Vimb — zentoo fork
+# Vimb — Craig Miller's fork
 
-This branch (`zentoo`) is a downstream fork of [`fanglingsu/vimb`](https://github.com/fanglingsu/vimb). It rebases onto upstream master periodically.
+This branch (`satori`) is a downstream fork of [`fanglingsu/vimb`](https://github.com/fanglingsu/vimb). It rebases onto upstream master periodically.
 
 ## Vimb - the Vim-like browser
 
@@ -31,9 +31,9 @@ the project page of [Vimb][].
 
 A stack of single-purpose, rebase-friendly commits on top of upstream:
 
-1. **WebKit-native ad + tracker + cookie-banner blocking.** Adds `VIMB_CONTENT_FILTER_STORE_PATH` to `src/config.def.h` and content-filter loading + `WebKitUserContentManager` attachment in `src/main.c`. Filters are precompiled to WebKit bytecode by [`app-misc/vimb-blocklist`](https://github.com/craig-miller/vimb-blocklist) in the zentoo overlay and loaded synchronously at `vimb_setup()` before any WebView is created.
+1. **WebKit-native ad + tracker + cookie-banner blocking.** Adds `VIMB_CONTENT_FILTER_STORE_PATH` to `src/config.def.h` and content-filter loading + `WebKitUserContentManager` attachment in `src/main.c`. Filters are precompiled to WebKit bytecode by [`app-misc/vimb-blocklist`](https://github.com/craig-miller/vimb-blocklist) in [gentoo-overlay](https://github.com/craig-miller/gentoo-overlay) and loaded synchronously at `vimb_setup()` before any WebView is created.
 2. **Opaque WebView background `#141414` (basalt).** `webkit_web_view_set_background_color` on every WebView so the pre-page-load state paints a solid deep near-black instead of WebKit's default opaque white. `GUI_WINDOW_BACKGROUND_COLOR` mirrors the value for the GTK window frame. A CSS-driven opacity fade-in was attempted (see commit `f2067e6`) and reverted: GTK4 CSS opacity doesn't apply to the WebView because WebKitGTK renders through its own Wayland subsurface, which bypasses GTK's snapshot compositor. The solid-black-then-progressive-render behavior is what the code ships.
-3. **Home page `https://kagi.com`.** One-line `SETTING_HOME_PAGE` flip. Privacy-respecting search, matches zentoo's content-filter + encrypted-DNS defaults. Users override at runtime via `set home-page=<url>` in `~/.config/vimb/config`.
+3. **Home page `https://kagi.com`.** One-line `SETTING_HOME_PAGE` flip. Privacy-respecting search, paired with this setup's content-filter and encrypted-DNS defaults. Users override at runtime via `set home-page=<url>` in `~/.config/vimb/config`.
 4. **`SIGUSR2` → reload config across all clients.** New signal handler that re-runs `ex_run_file()` on `~/.config/vimb/config` for every open Client. Deferred via `g_idle_add` so cascading GTK/WebKit signals fire from a clean main-loop iteration. Lets external tools (a system-theme daemon, a dotfile installer) flip runtime settings without restart. `pkill -USR2 -x vimb` broadcasts to every live vimb window.
 
 5. **Dark Reader theming stack.** Adds `resources/etc-vimb-config` (a baseline system config with `dark-mode=on` + the `zm` keybind for manual toggle) and `resources/dr-fixes/` (a fixes-DB refresh script, a runtime bootstrap, and a weekly cron entry) for automatic dark theming of sites that lack native dark-mode support. Layered on top of that, `user_style()` / `user_scripts()` / config sourcing gained a system-file fallback pattern (`/usr/share/vimb/{style.css,scripts.js}`, `/etc/vimb/config`) plus a `/var/lib/vimb/scripts.js` intermediate for cron-driven refreshes to write to. Wire it up via `make install-dark-reader` (below) or the `dark-reader` USE flag (Gentoo overlay ebuild).
@@ -42,7 +42,7 @@ A stack of single-purpose, rebase-friendly commits on top of upstream:
 
 7. **Pass-backed password manager.** Native save + autofill wired directly into the browser, backed by `pass(1)`. Entries live under `~/.password-store/websites/<host>/<user>.gpg`. Form detection is a byte-for-byte vendored copy of GNOME Web (Epiphany)'s `ephy.js` — the same battle-tested detector, only the C↔JS binding layer is substituted for vimb's `WebKitUserContentManager` postMessage pattern. Adds `:pass-fill [host[/user]]` and `:pass-forget host/user` ex-commands, `:set pass-enabled=on/off`, and a save-prompt mode (`'P'`) + fill-picker mode (`'F'`) registered via `vb_mode_add`. No dependency on `libsecret` or `pass-secret-service`.
 
-8. **Mode-aware GTK chrome + Noctalia v5 dynamic palette.** New `insert-css` / `command-css` / `hint-mode-css` / `pass-css` / `passthrough-css` settings tint the statusbar per vim mode via CSS classes added by `vb_chrome_set_mode_class` on every mode transition. New `hint-label-css` / `hint-link-css` / `hint-focus-css` settings drive the page-level f-hint labels and highlighted-link colors, overlaid at author level on top of the existing `CSS_HINTS` sheet so the palette wins the cascade. All eight new settings — plus the existing `status-css` / `input-css` / completion trio — are populated by a Noctalia v5 user template (`[theme.templates.user.vimb]`) that renders the active palette's role tokens (`surface`, `primary`, `tertiary`, `error`, ...) into `~/.config/vimb/noctalia-theme`; the template's `post_hook = "pkill -USR2 -x vimb"` fires the SIGUSR2 reload from feature 4, so palette flips, wallpaper regeneration, and dark/light toggle propagate to every open vimb window in real time — no restart. Compile-time defaults switched from the historic lime-green statusbar to a Noctalia-Default (approximately Catppuccin Mocha) dark palette so cold boot without Noctalia rendering still shows coherent colors. Template + registration live in [zentoo-dotfiles](https://github.com/craig-miller/zentoo-dotfiles/blob/main/noctalia/dot-config/noctalia/templates/vimb.tpl); the ebuild ships the vimb side.
+8. **Mode-aware GTK chrome + Noctalia v5 dynamic palette.** New `insert-css` / `command-css` / `hint-mode-css` / `pass-css` / `passthrough-css` settings tint the statusbar per vim mode via CSS classes added by `vb_chrome_set_mode_class` on every mode transition. New `hint-label-css` / `hint-link-css` / `hint-focus-css` settings drive the page-level f-hint labels and highlighted-link colors, overlaid at author level on top of the existing `CSS_HINTS` sheet so the palette wins the cascade. All eight new settings — plus the existing `status-css` / `input-css` / completion trio — are populated by a Noctalia v5 user template (`[theme.templates.user.vimb]`) that renders the active palette's role tokens (`surface`, `primary`, `tertiary`, `error`, ...) into `~/.config/vimb/noctalia-theme`; the template's `post_hook = "pkill -USR2 -x vimb"` fires the SIGUSR2 reload from feature 4, so palette flips, wallpaper regeneration, and dark/light toggle propagate to every open vimb window in real time — no restart. Compile-time defaults switched from the historic lime-green statusbar to a Noctalia-Default (approximately Catppuccin Mocha) dark palette so cold boot without Noctalia rendering still shows coherent colors. Template + registration live in [gentoo-dotfiles](https://github.com/craig-miller/gentoo-dotfiles/blob/main/noctalia/dot-config/noctalia/templates/vimb.tpl); the ebuild ships the vimb side.
 
 9. **Floating cmdline popover (noice.nvim style).** New `src/floating-cmdline.{c,h}` module wraps `vb.notebook` in a `GtkOverlay` and provides a center-screen popover that reparents `vb.inputbox` on demand. Every prompt that previously used the thin bottom-of-window inputbox — `:` ex commands, `/` and `?` search, pass save prompt (mode `'P'`), pass fill picker (mode `'F'`), and the `:open` completion picker — opens in the popover instead, at 2/3 of the window width, with a title label and a completion slot. Focus routing is mode-aware: text-accumulate modes (`'c'` / `'F'`) grab focus onto the inputbox so keystrokes flow through GTK's IM into the buffer; keystroke-dispatch modes leave focus on the webview so keys dispatch through the mode's `keypress` callback. The `:open` completion pane inside the popover now renders URL and title in distinct columns (fixed 50-char URL width, 24px gap) so long titles never squeeze the URL into ellipsis.
 
@@ -63,19 +63,19 @@ A stack of single-purpose, rebase-friendly commits on top of upstream:
 **Why SIGUSR2 rather than SIGUSR1.** WebKit's JSC uses `SIGUSR1` for stop-the-world garbage-collection signaling. Registering our own SIGUSR1 handler prints `Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal.` at startup and crashes the process (SIGSEGV) on the next GC pass. SIGUSR2 is unclaimed by the WebKit / GLib / GTK stack.
 
 
-14. **Typst-preview auto-passthrough.** `chomosuke/typst-preview.nvim` (writing chapter of the zentoo install-guide) opens its live preview URL in vimb with a `?zentoo-typst-preview=1` query-param baked into its `open_cmd`. A single-line `autocmd LoadFinished *zentoo-typst-preview=1* normal <C-Z>` in the shipped `resources/etc-vimb-config` catches those loads and auto-engages passthrough mode, so the preview page's in-page JS keybinds (`t` dark-mode toggle, arrows / PgUp / PgDn scroll, `g` jump, `?` help) pass straight through instead of being intercepted by vimb's normal-mode dispatch. The marker is URL-scoped so only real preview pages match — other localhost pages you open by hand still get normal vimb behavior.
+14. **Typst-preview auto-passthrough.** `chomosuke/typst-preview.nvim` (writing chapter of the [Gentoo system documentation](https://github.com/craig-miller/gentoo-docs)) opens its live preview URL in vimb with a `?zentoo-typst-preview=1` query-param baked into its `open_cmd`. A single-line `autocmd LoadFinished *zentoo-typst-preview=1* normal <C-Z>` in the shipped `resources/etc-vimb-config` catches those loads and auto-engages passthrough mode, so the preview page's in-page JS keybinds (`t` dark-mode toggle, arrows / PgUp / PgDn scroll, `g` jump, `?` help) pass straight through instead of being intercepted by vimb's normal-mode dispatch. The marker is URL-scoped so only real preview pages match — other localhost pages you open by hand still get normal vimb behavior.
 
 ## Installing
 
 ### Gentoo Linux
-The [zentoo overlay](https://github.com/craig-miller/zentoo-overlay) carries `www-client/vimb` wired to this branch (git-r3 live). If you're following the install guide, `sudo emerge --ask www-client/vimb` pulls the fork, WebKit-GTK 6.0, the ad-blocking helper stack, and installs `/usr/bin/vimb-theme-flip` — a small shell helper for Noctalia's `theme_mode_changed` hook.
+The [gentoo-overlay repository](https://github.com/craig-miller/gentoo-overlay) carries `www-client/vimb` wired to this branch (git-r3 live). If you're following the install guide, `sudo emerge --ask www-client/vimb` pulls the fork, WebKit-GTK 6.0, the ad-blocking helper stack, and installs `/usr/bin/vimb-theme-flip` — a small shell helper for Noctalia's `theme_mode_changed` hook.
 
 ### Other distros
 
-Standard build produces a stock vimb binary — none of the zentoo opinions apply until you install the extra bits on top.
+Standard build produces a stock vimb binary — none of the optional desktop integrations apply until you install the extra bits on top.
 
 ```sh
-git clone -b zentoo https://github.com/craig-miller/vimb.git
+git clone -b satori https://github.com/craig-miller/vimb.git
 cd vimb
 make
 
@@ -111,14 +111,14 @@ sudo make uninstall-dark-reader      # + Dark Reader + config (chains through un
 sudo make uninstall-config           # just the baseline config
 ```
 
-DEPEND is `webkit-gtk 6` + `gtk 4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the [zentoo overlay ebuild](https://github.com/craig-miller/zentoo-overlay/blob/main/www-client/vimb/vimb-9999.ebuild) for the canonical set.
+DEPEND is `webkit-gtk 6` + `gtk 4` + the GStreamer plugin cluster (`good`, `libav`, `opus`, `soup`, `pulse`, `adaptivedemux2`, `dash`, `hls`) — see the [gentoo-overlay ebuild](https://github.com/craig-miller/gentoo-overlay/blob/main/www-client/vimb/vimb-9999.ebuild) for the canonical set.
 
 ## Rebasing on upstream
 
 ```sh
 git fetch upstream
 git rebase upstream/master
-git push origin zentoo   # force-push after rebase
+git push --force-with-lease origin satori   # after rebasing published commits
 ```
 
 Each commit is single-purpose so conflicts, if any, are localized.
