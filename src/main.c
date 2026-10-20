@@ -156,7 +156,7 @@ static void on_main_window_destroy(GtkWidget *window, gpointer data);
 struct Vimb vb;
 
 /* Ad-blocking via WebKit's native content-filter API.
- * Filters are precompiled by app-misc/vimb-blocklist (zentoo overlay)
+ * Filters are precompiled by app-misc/vimb-blocklist (gentoo-overlay)
  * into VIMB_CONTENT_FILTER_STORE_PATH; we load them once at startup and
  * attach references to every WebView created via webview_new(). */
 #define VIMB_CONTENT_FILTER_COUNT 3

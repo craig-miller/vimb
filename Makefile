@@ -64,9 +64,9 @@ test-clean:
 %.subdir-clean:
 	$(Q)$(MAKE) -C $* clean
 
-# --- zentoo-flavored install targets ---
+# --- Fork-specific install targets ---
 # The upstream `install` target above gives you a stock vimb. These extra
-# targets install the zentoo opinions on top: a baseline config with
+# targets install the fork's defaults on top: a baseline config with
 # `dark-mode=on` + the `zm` keybind, and optionally the full Dark Reader
 # theming stack + weekly fixes-DB refresh cron.
 #

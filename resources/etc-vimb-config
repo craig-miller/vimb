@@ -1,4 +1,4 @@
-# zentoo system-wide vimb config, sourced from /etc/vimb/config before the
+# System-wide vimb config, sourced from /etc/vimb/config before the
 # user's ~/.config/vimb/config. Any of these lines can be shadowed by
 # putting a different value in the user config.
 

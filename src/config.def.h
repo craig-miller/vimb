@@ -163,6 +163,6 @@
  * API. At startup vimb reads three precompiled filters (easylist,
  * easyprivacy, cookies) from this directory and attaches them to every
  * WebView it creates. The store is populated by app-misc/vimb-blocklist
- * in the zentoo overlay via a weekly cron. Set to the empty string to
+ * in gentoo-overlay via a weekly cron. Set to the empty string to
  * disable filtering. */
 #define VIMB_CONTENT_FILTER_STORE_PATH "/var/cache/vimb-blocklist/store"
